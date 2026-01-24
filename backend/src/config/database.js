@@ -1,14 +1,21 @@
 const mongoose = require('mongoose');
 
 const connectDB = async () => {
-  try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/codeverse-campus');
+  const uri = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/codeverse_campus';
 
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
-    return conn;
+  try {
+    const conn = await mongoose.connect(uri);
+    console.log('✅ MongoDB Connected Successfully');
+    console.log(`   Database: ${conn.connection.name}`);
+    console.log(`   Host: ${conn.connection.host}`);
+    return true;
   } catch (error) {
-    console.error(`Error: ${error.message}`);
-    process.exit(1);
+    console.log('⚠️  MongoDB Connection Failed, running in static mode');
+    console.log(`   Reason: ${error.message}`);
+    console.log('   Server will continue with static responses');
+    
+    // DO NOT throw error - let server run without DB
+    return false;
   }
 };
 

@@ -11,10 +11,30 @@ exports.errorHandler = (err, req, res, next) => {
     error = { message, statusCode: 404 };
   }
 
-  // Mongoose duplicate key
+  // Mongoose duplicate key error (E11000)
   if (err.code === 11000) {
-    const message = `Duplicate field value entered`;
-    error = { message, statusCode: 400 };
+    let message = 'Duplicate student identity detected';
+    
+    // Extract the field that caused the duplicate
+    const field = Object.keys(err.keyPattern)[0];
+    
+    // Provide user-friendly messages based on the duplicate field
+    if (field === 'regNumber') {
+      message = 'This roll number is already registered';
+    } else if (field === 'collegeIdCardHash') {
+      message = 'This College ID Card has already been used for registration';
+    } else if (field === 'selfieHash') {
+      message = 'This selfie has already been used for registration';
+    } else if (field === 'email') {
+      message = 'Email already registered';
+    }
+    
+    error = { 
+      message, 
+      statusCode: 409, 
+      isDuplicate: true,
+      duplicateField: field 
+    };
   }
 
   // Mongoose validation error
@@ -26,6 +46,8 @@ exports.errorHandler = (err, req, res, next) => {
   res.status(error.statusCode || 500).json({
     success: false,
     message: error.message || 'Server Error',
+    isDuplicate: error.isDuplicate || false,
+    duplicateField: error.duplicateField || undefined,
   });
 };
 

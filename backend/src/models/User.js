@@ -29,10 +29,17 @@ const userSchema = new mongoose.Schema(
       minlength: 6,
       select: false,
     },
+    // Legacy single role field (for backward compatibility)
     role: {
       type: String,
-      enum: ['student', 'admin', 'organizer'],
+      enum: ['student', 'admin', 'organizer', 'ORGANIZER', 'STUDENT_COORDINATOR'],
       default: 'student',
+    },
+    // New multiple roles array field
+    roles: {
+      type: [String],
+      enum: ['STUDENT', 'STUDENT_COORDINATOR', 'ORGANIZER', 'ADMIN'],
+      default: ['STUDENT'],
     },
     college: {
       type: String,
@@ -46,10 +53,32 @@ const userSchema = new mongoose.Schema(
     },
     regNumber: {
       type: String,
+      unique: true,
+      sparse: true, // Allows null values but enforces uniqueness for non-null values
     },
     profilePicture: {
       type: String,
       default: null,
+    },
+    collegeIdCard: {
+      type: String,
+      default: null,
+    },
+    collegeIdCardHash: {
+      type: String,
+      unique: true,
+      sparse: true,
+      default: undefined, // Prevents storing null values
+    },
+    liveSelfie: {
+      type: String,
+      default: null,
+    },
+    selfieHash: {
+      type: String,
+      unique: true,
+      sparse: true,
+      default: undefined, // Prevents storing null values
     },
     bio: {
       type: String,
@@ -60,10 +89,35 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    emailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    mobileVerified: {
+      type: Boolean,
+      default: false,
+    },
+    cameraVerified: {
+      type: Boolean,
+      default: false,
+    },
     verificationToken: String,
     verificationTokenExpire: Date,
     resetToken: String,
     resetTokenExpire: Date,
+    // Email OTP fields
+    emailOTP: {
+      type: String,
+      select: false, // Don't return in queries by default
+    },
+    otpExpiry: {
+      type: Date,
+      select: false,
+    },
     coins: {
       type: Number,
       default: 0,
@@ -84,6 +138,15 @@ const userSchema = new mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true,
+    },
+    // Google Calendar OAuth tokens
+    googleAccessToken: {
+      type: String,
+      select: false,
+    },
+    googleRefreshToken: {
+      type: String,
+      select: false,
     },
   },
   { timestamps: true }

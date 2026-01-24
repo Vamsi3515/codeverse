@@ -4,53 +4,69 @@ const hackathonSchema = new mongoose.Schema(
   {
     title: {
       type: String,
-      required: [true, 'Please provide a hackathon title'],
       trim: true,
     },
     description: {
       type: String,
-      required: [true, 'Please provide a description'],
     },
     organizer: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
+    },
+    organizerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    createdByRole: {
+      type: String,
+      enum: ['organizer', 'ORGANIZER', 'STUDENT_COORDINATOR'],
     },
     college: {
       type: String,
-      required: [true, 'Please provide organizing college'],
     },
     mode: {
       type: String,
       enum: ['online', 'offline', 'hybrid'],
-      required: true,
     },
     startDate: {
       type: Date,
-      required: [true, 'Please provide start date'],
     },
     endDate: {
       type: Date,
-      required: [true, 'Please provide end date'],
     },
     registrationStartDate: {
       type: Date,
-      required: true,
     },
     registrationEndDate: {
       type: Date,
-      required: true,
     },
     duration: {
       type: Number, // in hours
-      required: true,
     },
     // For offline hackathons
     location: {
-      address: String,
-      city: String,
-      state: String,
-      zipCode: String,
+      venueName: {
+        type: String,
+        trim: true,
+      },
+      address: {
+        type: String,
+        trim: true,
+      },
+      city: {
+        type: String,
+        trim: true,
+      },
+      latitude: {
+        type: Number,
+      },
+      longitude: {
+        type: Number,
+      },
       coordinates: {
         type: {
           type: String,
@@ -59,9 +75,6 @@ const hackathonSchema = new mongoose.Schema(
         },
         coordinates: {
           type: [Number], // [longitude, latitude]
-          required: function () {
-            return this.mode === 'offline' || this.mode === 'hybrid';
-          },
         },
       },
     },
@@ -79,21 +92,23 @@ const hackathonSchema = new mongoose.Schema(
     },
     maxParticipants: {
       type: Number,
-      required: true,
     },
     registrationFee: {
       type: Number,
       default: 0, // 0 means free
     },
-    teamSize: {
-      min: {
-        type: Number,
-        default: 1,
-      },
-      max: {
-        type: Number,
-        default: 4,
-      },
+    participationType: {
+      type: String,
+      enum: ['SOLO', 'TEAM', 'solo', 'team'],
+      default: 'SOLO',
+    },
+    minTeamSize: {
+      type: Number,
+      default: 2,
+    },
+    maxTeamSize: {
+      type: Number,
+      default: 4,
     },
     rules: [String],
     prizes: {
@@ -106,14 +121,51 @@ const hackathonSchema = new mongoose.Schema(
       {
         title: String,
         description: String,
+        inputFormat: String,
+        outputFormat: String,
+        constraints: String,
+        sampleInput: String,
+        sampleOutput: String,
+        explanation: String,
+        sampleTestCases: [
+          {
+            input: String,
+            output: String,
+          },
+        ],
+        hiddenTestCases: [
+          {
+            input: String,
+            output: String,
+          },
+        ],
+        timeLimit: {
+          type: Number,
+          default: 1, // seconds
+        },
+        memoryLimit: {
+          type: Number,
+          default: 256, // MB
+        },
+        allowedLanguages: {
+          type: [String],
+          default: ['C', 'C++', 'Java', 'Python'],
+        },
         resources: [String],
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
       },
     ],
     // Anti-cheating configuration for online hackathons
     antiCheatRules: {
       tabSwitchLimit: Number, // 0 means unlimited
+      tabSwitchAllowed: Boolean,
       copyPasteRestricted: Boolean,
+      copyPasteAllowed: Boolean,
       screenShareRequired: Boolean,
+      fullScreenRequired: Boolean,
       activityTracking: Boolean,
       webcamRequired: Boolean,
     },
@@ -136,8 +188,12 @@ const hackathonSchema = new mongoose.Schema(
     bannerImage: String,
     status: {
       type: String,
-      enum: ['draft', 'published', 'ongoing', 'completed', 'cancelled'],
+      enum: ['draft', 'published', 'scheduled', 'ongoing', 'active', 'completed', 'cancelled'],
       default: 'draft',
+    },
+    isPublished: {
+      type: Boolean,
+      default: false,
     },
     registeredCount: {
       type: Number,
