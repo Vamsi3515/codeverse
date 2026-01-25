@@ -355,7 +355,7 @@ export default function StudentDashboard(){
 
   // Handle joining online hackathon with face verification
   const handleJoinOnlineHackathon = (hackathon) => {
-    console.log('🎯 [JOIN HACKATHON] Initiating face verification for:', hackathon.title)
+    console.log('🎯 [JOIN HACKATHON] button clicked for:', hackathon.title)
     
     // Check if hackathon is live
     if (!isHackathonLive(hackathon)) {
@@ -363,28 +363,51 @@ export default function StudentDashboard(){
       return
     }
 
+    // SKIP VERIFICATION - DIRECT ENTRY for Online Hackathons
+    // As per new requirements: "Join Hackathon" -> Code Editor
+    console.log('⏩ [JOIN HACKATHON] Skipping verification for online hackathon. Redirecting to Editor.')
+    navigate(`/editor/${hackathon.id || hackathon._id}`)
+
+    /* 
+    // PREVIOUS VERIFICATION LOGIC COMMENTED OUT
     // Open face verification modal
     setFaceVerificationModal({
       open: true,
       hackathon: hackathon
     })
+    */
   }
 
   // Handle successful face verification
   const handleFaceVerificationSuccess = (verificationResult) => {
     console.log('✅ [FACE VERIFICATION] Success:', verificationResult)
     
+    // Capture context before closing
+    const currentHackathon = faceVerificationModal.hackathon;
+    const isRegistration = faceVerificationModal.isRegistration;
+    const registrationData = faceVerificationModal.registrationData;
+
     // Close modal
     setFaceVerificationModal({ open: false, hackathon: null })
 
-    // Navigate to contest/editor page
-    const hackathon = faceVerificationModal.hackathon
-    if (hackathon) {
-      // Navigate to problem statements or editor
-      navigate(`/editor/${hackathon.id || hackathon._id}`)
-      
-      // You can also show a success toast here
-      console.log('🚀 [NAVIGATION] Entering hackathon:', hackathon.title)
+    if (isRegistration) {
+      console.log('🎉 [REGISTRATION] Face verified! Showing success modal.');
+      // Show success modal
+      setRegistrationSuccessModal({
+          open: true,
+          hackathon: currentHackathon,
+          registration: registrationData
+      })
+    } else {
+      // Normal "Join" flow
+      // Navigate to contest/editor page
+      if (currentHackathon) {
+        // Navigate to problem statements or editor
+        navigate(`/editor/${currentHackathon.id || currentHackathon._id}`)
+        
+        // You can also show a success toast here
+        console.log('🚀 [NAVIGATION] Entering hackathon:', currentHackathon.title)
+      }
     }
   }
 
@@ -735,11 +758,43 @@ export default function StudentDashboard(){
                     {h.mode === 'Offline' && (
                       <button onClick={()=>{console.log('🔘 [BUTTON CLICK] Get Location clicked for:', h); showDistance(h);}} className="flex-1 sm:flex-auto px-3 py-2 text-sm bg-indigo-50 text-indigo-700 rounded-md">Get Location & Distance</button>
                     )}
-                    {registeredHackathons.includes(h.id || h._id) ? (
-                      <button className="flex-1 sm:flex-auto px-3 py-2 text-sm bg-gray-100 text-gray-800 rounded-md">✔ Registered</button>
-                    ) : (
-                      <button onClick={() => handleRegister(h)} className="flex-1 sm:flex-auto px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md">Register</button>
-                    )}
+                    
+                    {/* Dynamic Button Logic */}
+                    {(() => {
+                      const isRegistered = registeredHackathons.includes(h.id || h._id)
+                      const status = (h.status || '').toLowerCase()
+                      const isOnline = (h.mode || '').toLowerCase() === 'online'
+
+                      if (status === 'completed') {
+                        return <div className="flex-1 sm:flex-auto px-3 py-2 text-sm text-gray-500 font-medium text-center bg-gray-100 rounded-md">Completed</div>
+                      }
+                      
+                      if (status === 'active' || status === 'ongoing') {
+                        if (isRegistered) {
+                          return (
+                            <button 
+                              onClick={() => isOnline ? handleJoinOnlineHackathon(h) : openQr(h)} 
+                              className="flex-1 sm:flex-auto px-3 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-md animate-pulse font-semibold"
+                            >
+                              {isOnline ? 'Join Hackathon' : 'View Ticket'}
+                            </button>
+                          )
+                        } else {
+                          return (
+                            <div className="flex-1 sm:flex-auto px-3 py-2 text-sm bg-gray-100 text-gray-500 rounded-md border border-gray-200 text-center cursor-not-allowed">
+                              Hackathon is live. Registration is closed.
+                            </div>
+                          )
+                        }
+                      }
+
+                      // Scheduled / Upcoming / Default
+                      if (isRegistered) {
+                        return <button disabled className="flex-1 sm:flex-auto px-3 py-2 text-sm bg-gray-100 text-gray-500 rounded-md cursor-not-allowed">✔ Registered</button>
+                      } else {
+                        return <button onClick={() => handleRegister(h)} className="flex-1 sm:flex-auto px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md">Register</button>
+                      }
+                    })()}
                   </div>
                 </div>
               </article>
@@ -775,9 +830,12 @@ export default function StudentDashboard(){
                             <span>Join Hackathon (LIVE)</span>
                           </button>
                         ) : (
-                          <div className="w-full sm:w-auto px-3 py-2 text-sm bg-gray-100 text-gray-600 rounded-md text-center">
-                            ⏰ Not Live Yet
-                          </div>
+                          // Show "Not Live Yet" only if NOT completed
+                          h.status !== 'Completed' && (
+                            <div className="w-full sm:w-auto px-3 py-2 text-sm bg-gray-100 text-gray-600 rounded-md text-center">
+                              ⏰ Not Live Yet
+                            </div>
+                          )
                         )
                       ) : (
                         // Offline hackathon - show QR code and location
@@ -845,7 +903,14 @@ export default function StudentDashboard(){
         <FaceVerificationModal
           open={faceVerificationModal.open}
           hackathon={faceVerificationModal.hackathon}
-          userProfileImage={userProfile?.profilePicture || userProfile?.liveSelfie}
+          userProfileImage={
+            (() => {
+              const img = userProfile?.liveSelfie || userProfile?.profilePicture;
+              if (!img) return null;
+              if (img.startsWith('http')) return img;
+              return `http://localhost:5000${img}`;
+            })()
+          }
           onClose={handleFaceVerificationClose}
           onSuccess={handleFaceVerificationSuccess}
         />

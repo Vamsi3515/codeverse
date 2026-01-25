@@ -31,4 +31,8 @@ router.get('/organizer/my-hackathons', protect, checkHackathonCreatorRole, hacka
 // Organizer-specific delete endpoint (more semantic)
 router.delete('/organizer/:hackathonId', protect, authorize('organizer', 'admin', 'ORGANIZER', 'STUDENT_COORDINATOR'), hackathonController.deleteHackathon);
 
+
+// Student completion trigger
+router.post('/:id/complete', protect, hackathonController.completeHackathon);
+
 module.exports = router;

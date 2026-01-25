@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { Suspense } from 'react'
 import './App.css'
 import './index.css'
 import { Routes, Route } from 'react-router-dom'
@@ -19,11 +19,13 @@ import CreateHackathon from './pages/CreateHackathon'
 import ManageHackathon from './pages/ManageHackathon'
 import HackathonDetails from './pages/HackathonDetails'
 import PreviousHackathonDetails from './pages/PreviousHackathonDetails'
-import OnlineEditor from './pages/OnlineEditor'
 import ViewRegistrations from './pages/ViewRegistrations'
 import EditHackathon from './pages/EditHackathon'
 import StudentRegistrationQR from './pages/StudentRegistrationQR'
 import RegistrationVerification from './pages/RegistrationVerification'
+// Lazy load OnlineEditor to prevent app crash if it fails
+const OnlineEditor = React.lazy(() => import('./pages/OnlineEditor'));
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Dummy sample data used to render hackathon cards (no backend integration)
 const SAMPLE = [
@@ -63,7 +65,13 @@ function App(){
           <Route path="/hackathon/:hackathonId/registrations" element={<ViewRegistrations />} />
           <Route path="/hackathon/:id/details" element={<HackathonDetails />} />
           <Route path="/previous-hackathon-details" element={<PreviousHackathonDetails />} />
-          <Route path="/editor/:id" element={<OnlineEditor />} />
+          <Route path="/editor/:id" element={
+             <ErrorBoundary>
+               <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading Editor...</div>}>
+                 <OnlineEditor />
+               </Suspense>
+             </ErrorBoundary>
+          } />
           
           {/* Public QR Code Registration Details Page */}
           <Route path="/registration/:registrationId" element={<StudentRegistrationQR />} />

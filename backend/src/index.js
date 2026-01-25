@@ -106,6 +106,10 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ success: true, message: 'Server is running' });
 });
 
+// Compiler Routes (New)
+const compilerRoutes = require('./routes/compiler/compilerRoutes');
+app.use('/api/compiler', compilerRoutes);
+
 // Socket.io events
 io.on('connection', (socket) => {
   console.log('New client connected:', socket.id);

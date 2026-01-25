@@ -27,10 +27,8 @@ export default function FaceVerificationModal({
   const canvasRef = useRef(null)
   const streamRef = useRef(null)
 
-  // API URL - Replace this with your FastAPI URL
-  const FACE_COMPARISON_API_URL = ''
-  // TODO: Replace with your actual FastAPI deployment URL
-  // Example: const FACE_COMPARISON_API_URL = 'https://your-fastapi-url.com/api/face-compare'
+  // API URL - FastAPI endpoint for face verification
+  const FACE_COMPARISON_API_URL = 'http://127.0.0.1:8000/verify'
 
   useEffect(() => {
     if (open && step === 'camera') {
@@ -65,8 +63,14 @@ export default function FaceVerificationModal({
 
   const stopCamera = () => {
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop())
+      streamRef.current.getTracks().forEach((track) => {
+        track.stop()
+        track.enabled = false
+      })
       streamRef.current = null
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null
     }
   }
 
@@ -84,11 +88,13 @@ export default function FaceVerificationModal({
     // Draw video frame to canvas
     context.drawImage(video, 0, 0, canvas.width, canvas.height)
 
+    // Stop camera immediately after capturing the frame
+    stopCamera()
+
     // Convert canvas to blob
     canvas.toBlob((blob) => {
       setCapturedImage(blob)
       setStep('captured')
-      stopCamera()
     }, 'image/jpeg', 0.9)
   }
 
@@ -110,7 +116,7 @@ export default function FaceVerificationModal({
     try {
       // Create FormData to send images
       const formData = new FormData()
-      formData.append('captured_image', capturedImage, 'captured.jpg')
+      formData.append('live_image', capturedImage, 'captured.jpg')
       
       // If userProfileImage is a URL, fetch it first
       let profileImageBlob
@@ -121,7 +127,7 @@ export default function FaceVerificationModal({
         profileImageBlob = userProfileImage
       }
       
-      formData.append('profile_image', profileImageBlob, 'profile.jpg')
+      formData.append('db_image', profileImageBlob, 'profile.jpg')
 
       // Call face comparison API
       console.log('🔍 Calling face comparison API:', FACE_COMPARISON_API_URL)
@@ -161,7 +167,7 @@ export default function FaceVerificationModal({
         setVerificationResult({
           match: false,
           confidence: confidence,
-          message: data.message || 'Face verification failed. Faces do not match.'
+          message: data.message || 'Face mismatch detected. Please retake your photo.'
         })
         setStep('failed')
       }
@@ -364,7 +370,7 @@ export default function FaceVerificationModal({
                 onClick={handleProceed}
                 className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-lg rounded-lg transition-all transform hover:scale-[1.02]"
               >
-                🚀 Enter Hackathon
+                Continue to Join Hackathon
               </button>
             </div>
           )}
@@ -410,7 +416,7 @@ export default function FaceVerificationModal({
                   onClick={retakePhoto}
                   className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"
                 >
-                  🔄 Try Again
+                  Retake
                 </button>
                 <button
                   onClick={handleClose}

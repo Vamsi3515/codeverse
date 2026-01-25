@@ -16,6 +16,7 @@ export default function EditHackathon() {
   const [participationType, setParticipationType] = useState('team')
   const [minTeamSize, setMinTeamSize] = useState(2)
   const [maxTeamSize, setMaxTeamSize] = useState(4)
+  const [maxParticipants, setMaxParticipants] = useState(100)
   const [registrationFee, setRegistrationFee] = useState('0')
   const [rules, setRules] = useState('')
 
@@ -51,6 +52,7 @@ export default function EditHackathon() {
         setRegistrationFee((h.registrationFee ?? 0).toString())
         setMinTeamSize(h.minTeamSize || 2)
         setMaxTeamSize(h.maxTeamSize || 4)
+        setMaxParticipants(h.maxParticipants || 100)
         setRules((h.rules || []).join('\n'))
         setOfflineLocation(h.location || null)
 
@@ -114,6 +116,7 @@ export default function EditHackathon() {
         duration: calculateDuration(startDateTime, endDateTime),
         location: mode === 'offline' ? offlineLocation : null,
         registrationFee: parseInt(registrationFee) || 0,
+        maxParticipants: parseInt(maxParticipants) || 100,
         participationType: participationType.toUpperCase(),
         minTeamSize: participationType === 'team' ? parseInt(minTeamSize) : 1,
         maxTeamSize: participationType === 'team' ? parseInt(maxTeamSize) : 1,
@@ -305,6 +308,17 @@ export default function EditHackathon() {
           {/* Registration & Rules */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Max Participants</label>
+              <input
+                type="number"
+                min={1}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                value={maxParticipants}
+                onChange={(e) => setMaxParticipants(e.target.value)}
+              />
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Registration Fee (₹)</label>
               <input
                 type="number"
@@ -314,7 +328,8 @@ export default function EditHackathon() {
                 onChange={(e) => setRegistrationFee(e.target.value)}
               />
             </div>
-            <div>
+            
+            <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">Rules (one per line)</label>
               <textarea
                 className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-sky-500 focus:border-transparent resize-none"

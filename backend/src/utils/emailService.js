@@ -89,6 +89,41 @@ exports.generatePasswordResetEmail = (resetLink) => {
   `;
 };
 
+
+// Generate Hackathon Completion Email
+exports.generateHackathonCompletionEmail = (studentName, hackathonTitle) => {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 20px auto; background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header { text-align: center; color: #333; margin-bottom: 20px; }
+        .content { color: #555; line-height: 1.6; font-size: 16px; }
+        .success-icon { text-align: center; font-size: 48px; margin: 20px 0; }
+        .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #888; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1 class="header">Hackathon Completed!</h1>
+        <div class="success-icon">🎉</div>
+        <div class="content">
+          <p>Dear <strong>${studentName}</strong>,</p>
+          <p>Your participation in <strong>${hackathonTitle}</strong> has been successfully completed.</p>
+          <p>We hope you had a great experience solving the challenges!</p>
+          <p>Results will be announced shortly on the platform.</p>
+        </div>
+        <div class="footer">
+          <p>&copy; ${new Date().getFullYear()} CodeVerse Campus. All rights reserved.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};
+
 // Generate OTP Verification Email (Matching specification exactly)
 exports.generateOTPEmail = (studentName, otp) => {
   return `

@@ -1,6 +1,8 @@
 const Hackathon = require('../models/Hackathon');
 const Registration = require('../models/Registration');
 const Team = require('../models/Team');
+const User = require('../models/User'); // Import User model
+const { sendEmail, generateHackathonCompletionEmail } = require('../utils/emailService'); // Import email service
 const { findNearbyHackathons, sortByDistance } = require('../utils/locationService');
 
 const validateOfflineLocation = (mode, location) => {
@@ -296,6 +298,7 @@ exports.publishHackathon = async (req, res) => {
 
     // Skip validation checks and force publish
     hackathon.status = 'published';
+    hackathon.isPublished = true;
     await hackathon.save();
 
     res.status(200).json({
@@ -821,6 +824,47 @@ exports.deleteProblemStatement = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error deleting problem statement:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Complete Hackathon (Send Email)
+exports.completeHackathon = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id; // From authMiddleware
+
+    console.log(`... Completing hackathon ${id} for user ${userId}`);
+
+    const hackathon = await Hackathon.findById(id);
+    if (!hackathon) {
+      return res.status(404).json({ success: false, message: 'Hackathon not found' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Send Completion Email
+    const emailHtml = generateHackathonCompletionEmail(user.name, hackathon.title);
+    
+    // Non-blocking email send
+    await sendEmail({
+      email: user.email,
+      subject: `Hackathon Completed: ${hackathon.title}`,
+      message: emailHtml
+    });
+
+    console.log(`... Completion email sent to ${user.email}`);
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'Hackathon completed and email sent successfully' 
+    });
+
+  } catch (error) {
+    console.error('... Error completing hackathon:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

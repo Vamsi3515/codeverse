@@ -95,6 +95,10 @@ exports.validateHackathonCreate = (req, res, next) => {
 
 // Validate hackathon registration request
 exports.validateHackathonReg = (req, res, next) => {
+  // Skipping validation as per user request to remove all validations
+  next();
+
+  /*
   const { hackathonId, participationType, teamData } = req.body;
 
   const result = validation.validateHackathonRegistration({
@@ -112,6 +116,7 @@ exports.validateHackathonReg = (req, res, next) => {
   }
 
   next();
+  */
 };
 
 // Validate QR verification request
