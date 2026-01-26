@@ -28,7 +28,8 @@ export default function FaceVerificationModal({
   const streamRef = useRef(null)
 
   // API URL - FastAPI endpoint for face verification
-  const FACE_COMPARISON_API_URL = 'http://127.0.0.1:8000/verify'
+  // Uses environment variable VITE_FACE_VERIFY_API_URL, defaults to localhost
+  const FACE_COMPARISON_API_URL = import.meta.env.VITE_FACE_VERIFY_API_URL || 'http://127.0.0.1:8000/verify'
 
   useEffect(() => {
     if (open && step === 'camera') {
@@ -105,8 +106,14 @@ export default function FaceVerificationModal({
   }
 
   const verifyFace = async () => {
+    console.log('🎯 [VERIFY BUTTON] Clicked')
+    console.log('📸 capturedImage:', capturedImage)
+    console.log('👤 userProfileImage:', userProfileImage)
+    
     if (!capturedImage || !userProfileImage) {
-      setError('Missing images for verification')
+      const errorMsg = !capturedImage ? 'Missing captured image' : 'Missing user profile image'
+      console.error('❌ [VERIFY] Error:', errorMsg)
+      setError(errorMsg)
       return
     }
 
@@ -121,8 +128,13 @@ export default function FaceVerificationModal({
       // If userProfileImage is a URL, fetch it first
       let profileImageBlob
       if (typeof userProfileImage === 'string') {
+        console.log('📥 Fetching profile image from URL:', userProfileImage)
         const response = await fetch(userProfileImage)
+        if (!response.ok) {
+          throw new Error(`Failed to fetch profile image: ${response.statusText}`)
+        }
         profileImageBlob = await response.blob()
+        console.log('✅ Profile image fetched, size:', profileImageBlob.size)
       } else {
         profileImageBlob = userProfileImage
       }
@@ -137,13 +149,22 @@ export default function FaceVerificationModal({
         body: formData,
       })
 
+      if (!response.ok) {
+        throw new Error(`API responded with status ${response.status}`)
+      }
+
       const data = await response.json()
       console.log('✅ Face comparison API response:', data)
+      console.log('📋 [RESPONSE DEBUG] Full response object:', JSON.stringify(data, null, 2))
+      console.log('✔️ [RESPONSE DEBUG] data.verified:', data.verified, 'Type:', typeof data.verified)
+      console.log('✔️ [RESPONSE DEBUG] data.success:', data.success, 'Type:', typeof data.success)
+      console.log('✔️ [RESPONSE DEBUG] data.match:', data.match, 'Type:', typeof data.match)
 
       // Support both response formats:
       // 1. User's FastAPI: { verified: boolean, distance: number, ... }
       // 2. Generic: { success: boolean, match: boolean, ... }
       const isVerified = data.verified === true || (data.success && data.match === true)
+      console.log('🎯 [VERIFICATION RESULT] isVerified:', isVerified)
       
       // Calculate confidence (normalize to 0-1 range)
       let confidence = 0
@@ -173,7 +194,7 @@ export default function FaceVerificationModal({
       }
     } catch (error) {
       console.error('❌ Face verification error:', error)
-      setError('Failed to verify face. Please try again.')
+      setError(`Failed to verify face: ${error.message}`)
       setStep('failed')
       setVerificationResult({
         match: false,
@@ -280,6 +301,14 @@ export default function FaceVerificationModal({
                 </p>
               </div>
 
+              {!userProfileImage && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <p className="text-sm text-red-800">
+                    ⚠️ Error: Profile image not found. Please ensure your profile photo is uploaded in your account settings.
+                  </p>
+                </div>
+              )}
+
               <div className="bg-gray-100 rounded-lg p-4">
                 <img
                   src={URL.createObjectURL(capturedImage)}
@@ -291,7 +320,13 @@ export default function FaceVerificationModal({
               <div className="flex gap-3">
                 <button
                   onClick={verifyFace}
-                  className="flex-1 px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors"
+                  disabled={!capturedImage || !userProfileImage}
+                  className={`flex-1 px-6 py-3 font-semibold rounded-lg transition-colors ${
+                    !capturedImage || !userProfileImage
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-green-600 hover:bg-green-700 text-white cursor-pointer'
+                  }`}
+                  title={!userProfileImage ? 'Profile image not loaded' : ''}
                 >
                   ✓ Verify Face
                 </button>

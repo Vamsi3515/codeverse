@@ -5,6 +5,7 @@ import usePreventBackNavigation from '../hooks/usePreventBackNavigation'
 import SelfieVerifier from '../components/SelfieVerifier'
 import FaceVerificationModal from '../components/FaceVerificationModal'
 import TeamRegistrationModal from '../components/TeamRegistrationModal'
+import PaymentModal from '../components/PaymentModal'
 import QRCodeDisplay from '../components/QRCodeDisplay'
 import RegistrationSuccessModal from '../components/RegistrationSuccessModal'
 import QRCodeModal from '../components/QRCodeModal'
@@ -26,22 +27,30 @@ function getFullImageUrl(imagePath) {
 const availableHackathons = [
   {
     id: 'h1',
+    _id: 'h1',
     title: 'InnovateAI Hackathon',
     college: 'State Technical University',
     date: '2026-01-1',
     mode: 'Online',
     status: 'Upcoming',
     registered: false,
+    registrationFee: 500,
+    participationType: 'SOLO',
     image: 'https://i.pinimg.com/736x/7e/89/9e/7e899ec4e4580407fe330df18d2cee0b.jpg'
   },
   {
     id: 'h2',
+    _id: 'h2',
     title: 'Campus CodeSprint',
     college: 'North College of Engineering',
     date: '2025-12-31',
     mode: 'Offline',
     status: 'Active',
     registered: true,
+    registrationFee: 0,
+    participationType: 'TEAM',
+    minTeamSize: 2,
+    maxTeamSize: 4,
     image: 'https://i.pinimg.com/736x/c1/38/ad/c138ad87230eaba8b70d714335e5187f.jpg',
     location: {
       venueName: 'North College Main Campus',
@@ -53,22 +62,30 @@ const availableHackathons = [
   },
   {
     id: 'h3',
+    _id: 'h3',
     title: 'GreenTech Challenge',
     college: 'City University',
     date: '2025-11-25',
     mode: 'Online',
     status: 'Completed',
     registered: true,
+    registrationFee: 300,
+    participationType: 'SOLO',
     image: 'https://i.pinimg.com/736x/44/04/fc/4404fc4e8f85ed002a3d76b8b2c9fb59.jpg'
   },
   {
     id: 'h4',
+    _id: 'h4',
     title: 'Campus Hack & Learn',
     college: 'Central College',
     date: '2026-02-05',
     mode: 'Offline',
     status: 'Upcoming',
     registered: false,
+    registrationFee: 1000,
+    participationType: 'TEAM',
+    minTeamSize: 2,
+    maxTeamSize: 5,
     image: 'https://i.pinimg.com/736x/83/58/fe/8358feeb3ef324913609c5fc1c666ac7.jpg',
     location: {
       venueName: 'Central College Auditorium',
@@ -80,22 +97,30 @@ const availableHackathons = [
   },
   {
     id: 'h5',
+    _id: 'h5',
     title: 'UX/UI Sprint',
     college: 'Design Institute',
     date: '2026-03-22',
     mode: 'Online',
     status: 'Upcoming',
     registered: false,
+    registrationFee: 0,
+    participationType: 'SOLO',
     image: 'https://i.pinimg.com/736x/38/f9/13/38f913f969b14a6ca5af964cc5b3528a.jpg'
   },
   {
     id: 'h6',
+    _id: 'h6',
     title: 'Fullstack Forge',
     college: 'Polytech Academy',
     date: '2025-12-23',
     mode: 'Offline',
     status: 'Active',
     registered: false,
+    registrationFee: 750,
+    participationType: 'TEAM',
+    minTeamSize: 2,
+    maxTeamSize: 4,
     image: 'https://i.pinimg.com/736x/6b/34/e7/6b34e7afedd804669c159f6479ec8c8a.jpg',
     location: {
       venueName: 'Polytech Innovation Hub',
@@ -244,6 +269,7 @@ export default function StudentDashboard(){
   const [registeredHackathons, setRegisteredHackathons] = useState([])
   const [registrationModal, setRegistrationModal] = useState({ open: false, hackathon: null })
   const [registrationSuccessModal, setRegistrationSuccessModal] = useState({ open: false, hackathon: null, registration: null })
+  const [paymentModal, setPaymentModal] = useState({ open: false, hackathon: null, registrationFee: 0, registrationType: null })
   const [apiHackathons, setApiHackathons] = useState([])
   const [loading, setLoading] = useState(true)
   const [attemptedHackathons, setAttemptedHackathons] = useState([]) // Track attempted/submitted hackathons
@@ -433,6 +459,7 @@ export default function StudentDashboard(){
             maxTeamSize: h.maxTeamSize,
             registeredCount: h.registeredCount,
             maxParticipants: h.maxParticipants,
+            registrationFee: h.registrationFee || 0, // Add registration fee field
             image: h.bannerImage || 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=1200&q=80',
             bannerImage: h.bannerImage || '', // Add bannerImage field
             latitude: h.location?.latitude,
@@ -442,6 +469,7 @@ export default function StudentDashboard(){
           console.log(`🔄 [TRANSFORM ${idx + 1}] Transformed hackathon:`, transformed);
           console.log(`🔄 [TRANSFORM ${idx + 1}] bannerImage:`, transformed.bannerImage);
           console.log(`🔄 [TRANSFORM ${idx + 1}] displayStatus:`, transformed.displayStatus);
+          console.log(`🔄 [TRANSFORM ${idx + 1}] Registration Fee:`, transformed.registrationFee);
           console.log(`🔄 [TRANSFORM ${idx + 1}] Location data:`, transformed.location);
           return transformed;
         });
@@ -460,25 +488,49 @@ export default function StudentDashboard(){
   const fetchUserProfile = async () => {
     try {
       const token = localStorage.getItem('token')
+      console.log('🔍 [USER PROFILE] Token from localStorage:', token ? '✅ Found' : '❌ Not found')
+      
       if (!token) {
         console.log('⚠️ [USER PROFILE] No token found')
         return
       }
 
+      console.log('🔄 [USER PROFILE] Fetching from:', `${API_URL}/auth/me`)
       const response = await fetch(`${API_URL}/auth/me`, {
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       })
 
+      console.log('📡 [USER PROFILE] Response status:', response.status, response.statusText)
+      
+      if (!response.ok) {
+        console.error('❌ [USER PROFILE] Response not OK:', response.status, response.statusText)
+        const errorText = await response.text()
+        console.error('📄 [USER PROFILE] Error response body:', errorText)
+        return
+      }
+
       const data = await response.json()
+      console.log('📦 [USER PROFILE] Full response data:', JSON.stringify(data, null, 2))
+      
       if (data.success && data.user) {
-        console.log('✅ [USER PROFILE] Fetched successfully:', data.user)
+        console.log('✅ [USER PROFILE] Success! User data:', data.user)
+        console.log('🖼️ [USER PROFILE] liveSelfie:', data.user.liveSelfie)
         setUserProfile(data.user)
+      } else if (data.user) {
+        // Sometimes API returns user without success flag
+        console.log('✅ [USER PROFILE] Got user data (no success flag):', data.user)
+        console.log('🖼️ [USER PROFILE] liveSelfie:', data.user.liveSelfie)
+        setUserProfile(data.user)
+      } else {
+        console.warn('⚠️ [USER PROFILE] No user data in response:', data)
       }
     } catch (error) {
-      console.error('❌ [USER PROFILE] Failed to fetch:', error)
+      console.error('❌ [USER PROFILE] Fetch error:', error.message)
+      console.error('❌ [USER PROFILE] Error stack:', error.stack)
     }
   }
 
@@ -502,19 +554,13 @@ export default function StudentDashboard(){
       return
     }
 
-    // SKIP VERIFICATION - DIRECT ENTRY for Online Hackathons
-    // As per new requirements: "Join Hackathon" -> Code Editor
-    console.log('⏩ [JOIN HACKATHON] Skipping verification for online hackathon. Redirecting to Editor.')
-    navigate(`/editor/${hackathon.id || hackathon._id}`)
-
-    /* 
-    // PREVIOUS VERIFICATION LOGIC COMMENTED OUT
-    // Open face verification modal
+    // NEW FLOW: Open face verification modal
+    console.log('📸 [JOIN HACKATHON] Opening face verification modal for:', hackathon.title)
     setFaceVerificationModal({
       open: true,
-      hackathon: hackathon
+      hackathon: hackathon,
+      isRegistration: false
     })
-    */
   }
 
   // Handle successful face verification
@@ -763,8 +809,68 @@ export default function StudentDashboard(){
   function closeDistance(){ setDistanceModal({ open:false, hackathon:null, distance: '' }) }
 
   function handleRegister(hackathon){
-    // Open registration modal with hackathon details
-    setRegistrationModal({ open: true, hackathon })
+    // Check hackathon participation type
+    const participationType = hackathon.participationType?.toUpperCase() || 'SOLO'
+    const registrationFee = hackathon.registrationFee || 0
+    
+    console.log('📋 [REGISTER] Full hackathon object:', hackathon)
+    console.log('📋 [REGISTER] Hackathon type:', participationType, 'Fee:', registrationFee)
+    console.log('📋 [REGISTER] Fee is positive?', registrationFee > 0)
+
+    if (participationType === 'TEAM') {
+      // Team registration - open TeamRegistrationModal
+      console.log('🎯 [REGISTER] Opening TEAM registration modal')
+      setRegistrationModal({ open: true, hackathon })
+    } else {
+      // Solo registration
+      if (registrationFee > 0) {
+        // Show payment modal if there's a fee
+        console.log('💳 [REGISTER] Opening payment modal for solo registration with fee ₹' + registrationFee)
+        setPaymentModal({
+          open: true,
+          hackathon,
+          registrationFee,
+          registrationType: 'SOLO'
+        })
+        alert(`💳 Payment Modal Opening: Hackathon "${hackathon.title}" has a registration fee of ₹${registrationFee}. Please complete payment.`)
+      } else {
+        // Direct registration if no fee
+        console.log('✅ [REGISTER] No fee, registering directly')
+        registerSoloDirectly(hackathon)
+      }
+    }
+  }
+
+  const registerSoloDirectly = async (hackathon) => {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        alert('Please login to register')
+        return
+      }
+
+      const response = await fetch(`${API_URL}/registrations`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          hackathonId: hackathon._id
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        handleRegistrationSuccess(data.registration)
+      } else {
+        alert(data.message || 'Registration failed')
+      }
+    } catch (err) {
+      console.error('Registration error:', err)
+      alert('Failed to register. Please try again.')
+    }
   }
 
   function handleRegistrationSuccess(registration) {
@@ -1041,7 +1147,7 @@ export default function StudentDashboard(){
                                   </div>
                                 </div>
                                 <button 
-                                  onClick={() => navigate(`/leaderboard/${h.id || h._id}`)}
+                                  onClick={() => navigate(`/hackathons/${h.id || h._id}/leaderboard`)}
                                   className="flex-1 px-3 py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-md font-semibold"
                                 >
                                   See Leaderboard
@@ -1167,7 +1273,7 @@ export default function StudentDashboard(){
                                           </div>
                                         </div>
                                         <button 
-                                          onClick={() => navigate(`/leaderboard/${hackId}`)}
+                                          onClick={() => navigate(`/hackathons/${hackId}/leaderboard`)}
                                           className="flex-1 px-3 py-2 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-md font-semibold"
                                         >
                                           Leaderboard
@@ -1288,10 +1394,17 @@ export default function StudentDashboard(){
           hackathon={faceVerificationModal.hackathon}
           userProfileImage={
             (() => {
-              const img = userProfile?.liveSelfie || userProfile?.profilePicture;
-              if (!img) return null;
-              if (img.startsWith('http')) return img;
-              return `http://localhost:5000${img}`;
+              console.log('🔍 [PROFILE IMAGE DEBUG] Entire userProfile object:', userProfile)
+              // Use liveSelfie field as it's stored in MongoDB
+              const img = userProfile?.liveSelfie;
+              console.log('🖼️ [PROFILE IMAGE] liveSelfie:', userProfile?.liveSelfie, 'selected:', img)
+              if (!img) {
+                console.warn('⚠️ [PROFILE IMAGE] No liveSelfie found in userProfile!')
+                return null;
+              }
+              const fullUrl = img.startsWith('http') ? img : `http://localhost:5000${img}`;
+              console.log('✅ [PROFILE IMAGE] Using URL:', fullUrl)
+              return fullUrl;
             })()
           }
           onClose={handleFaceVerificationClose}
@@ -1356,6 +1469,22 @@ export default function StudentDashboard(){
           hackathon={registrationModal.hackathon}
           onClose={() => setRegistrationModal({ open: false, hackathon: null })}
           onSuccess={handleRegistrationSuccess}
+        />
+      )}
+
+      {/* Payment Modal - For hackathon registration with fees */}
+      {paymentModal.open && paymentModal.hackathon && (
+        <PaymentModal
+          open={paymentModal.open}
+          hackathon={paymentModal.hackathon}
+          registrationType={paymentModal.registrationType}
+          registrationFee={paymentModal.registrationFee}
+          onClose={() => setPaymentModal({ open: false, hackathon: null, registrationFee: 0, registrationType: null })}
+          onPaymentSuccess={handleRegistrationSuccess}
+          onPaymentFailed={(error) => {
+            alert(`Payment failed: ${error}`)
+            setPaymentModal({ open: false, hackathon: null, registrationFee: 0, registrationType: null })
+          }}
         />
       )}
 

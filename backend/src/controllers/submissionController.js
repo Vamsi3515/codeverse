@@ -530,3 +530,39 @@ exports.getMySubmissions = async (req, res) => {
     });
   }
 };
+
+/**
+ * Get all submissions for a specific hackathon (for organizers)
+ */
+exports.getHackathonSubmissions = async (req, res) => {
+  try {
+    const { hackathonId } = req.params;
+
+    console.log('📋 FETCHING HACKATHON SUBMISSIONS:', { hackathonId });
+
+    // Fetch all submissions for this hackathon
+    const submissions = await HackathonSubmission.find({ 
+      hackathonId,
+      status: 'completed'
+    })
+      .select('userId studentName email leaderboardScore submittedAt problemsSubmitted')
+      .lean();
+
+    const count = submissions.length;
+
+    console.log('✅ HACKATHON SUBMISSIONS FETCHED:', count, 'submissions');
+
+    res.status(200).json({
+      success: true,
+      count: count,
+      submissions: submissions,
+      message: `Found ${count} completed submissions`,
+    });
+  } catch (error) {
+    console.error('❌ GET HACKATHON SUBMISSIONS ERROR:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};

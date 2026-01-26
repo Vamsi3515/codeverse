@@ -10,8 +10,8 @@ router.get('/:userId', protect, async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // Ensure the requesting user can only access their own data
-    if (req.user.id !== userId && req.user.role !== 'admin' && req.user.role !== 'organizer') {
+    // Ensure the requesting user can only access their own data OR if organizer/admin
+    if (req.user.id !== userId && req.user.role !== 'admin' && req.user.role !== 'organizer' && req.user.role !== 'ORGANIZER') {
       return res.status(403).json({ 
         success: false, 
         message: 'Not authorized to access this resource' 
@@ -19,10 +19,10 @@ router.get('/:userId', protect, async (req, res) => {
     }
 
     // Try Student model first, then User model
-    let student = await Student.findById(userId).select('firstName lastName email college collegeAddress liveSelfie profilePicture');
+    let student = await Student.findById(userId);
     
     if (!student) {
-      student = await User.findById(userId).select('firstName lastName email college collegeAddress liveSelfie profilePicture');
+      student = await User.findById(userId);
     }
 
     if (!student) {
@@ -34,15 +34,23 @@ router.get('/:userId', protect, async (req, res) => {
 
     res.status(200).json({
       success: true,
-      student: {
+      user: {
         id: student._id,
-        firstName: student.firstName,
-        lastName: student.lastName,
+        fullName: student.firstName && student.lastName ? `${student.firstName} ${student.lastName}` : (student.name || 'N/A'),
+        name: student.firstName && student.lastName ? `${student.firstName} ${student.lastName}` : (student.name || 'N/A'),
+        firstName: student.firstName || '',
+        lastName: student.lastName || '',
         email: student.email,
+        phone: student.phone || '',
+        phoneNumber: student.phone || '',
         college: student.college,
         collegeAddress: student.collegeAddress,
+        rollNumber: student.rollNumber || '',
+        department: student.department || '',
+        year: student.year || '',
         liveSelfie: student.liveSelfie,
-        profilePicture: student.profilePicture
+        profilePicture: student.profilePicture,
+        createdAt: student.createdAt
       }
     });
   } catch (error) {

@@ -41,6 +41,7 @@ const studentRoutes = require('./routes/studentRoutes');
 const qrRoutes = require('./routes/qrRoutes');
 const calendarRoutes = require('./routes/calendarRoutes');
 const googleCalendarRoutes = require('./routes/googleCalendarRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
 
 // Initialize app and server
 const app = express();
@@ -98,6 +99,7 @@ app.use('/api/students', studentRoutes);
 app.use('/api/qr', qrRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/google-calendar', googleCalendarRoutes);
+app.use('/api/payments', paymentRoutes);
 // Alias mount so /api/auth/google/callback hits the same router
 app.use('/api/auth/google', googleCalendarRoutes);
 

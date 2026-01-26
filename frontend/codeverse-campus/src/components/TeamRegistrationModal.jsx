@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import PaymentModal from './PaymentModal'
 
 const API_URL = 'http://localhost:5000/api'
 
@@ -14,6 +15,13 @@ export default function TeamRegistrationModal({ hackathon, onClose, onSuccess })
   // Student info
   const [leaderEmail, setLeaderEmail] = useState('')
   const [leaderRollNumber, setLeaderRollNumber] = useState('')
+
+  // Payment Modal State
+  const [paymentModal, setPaymentModal] = useState({ 
+    open: false, 
+    registrationFee: 0,
+    registrationType: null
+  })
 
   useEffect(() => {
     // Get logged-in student info from localStorage
@@ -40,6 +48,9 @@ export default function TeamRegistrationModal({ hackathon, onClose, onSuccess })
       console.log('✅ [TEAM REG] Initialized', minSize - 1, 'empty team member fields')
     }
   }, [hackathon])
+
+  // Get registration fee from hackathon
+  const registrationFee = hackathon?.registrationFee || 0
 
   const handleTeamSizeChange = (newSize) => {
     const size = parseInt(newSize)
@@ -110,6 +121,31 @@ export default function TeamRegistrationModal({ hackathon, onClose, onSuccess })
     
     if (!validateForm()) return
     
+    // Check if registration has a fee
+    const registrationFee = hackathon.registrationFee || 0
+    
+    console.log('💳 [REGISTRATION] Form submitted');
+    console.log('💳 [REGISTRATION] Hackathon:', hackathon);
+    console.log('💳 [REGISTRATION] Registration Fee:', registrationFee);
+    
+    if (registrationFee > 0) {
+      // Show payment modal if there's a fee
+      console.log('🔗 [REGISTRATION] Opening payment modal for team registration');
+      console.log('🔗 [REGISTRATION] Payment modal state before update:', paymentModal);
+      setPaymentModal({
+        open: true,
+        registrationFee,
+        registrationType: 'TEAM'
+      });
+      console.log('🔗 [REGISTRATION] Payment modal opened!');
+    } else {
+      // Direct registration if no fee
+      console.log('✅ [REGISTRATION] No fee, registering directly')
+      await registerDirectly()
+    }
+  }
+
+  const registerDirectly = async () => {
     setLoading(true)
     
     try {
@@ -158,6 +194,17 @@ export default function TeamRegistrationModal({ hackathon, onClose, onSuccess })
     } finally {
       setLoading(false)
     }
+  }
+
+  const handlePaymentSuccess = (registration) => {
+    console.log('🎉 [PAYMENT SUCCESS] Registration complete:', registration)
+    onSuccess(registration)
+    onClose()
+  }
+
+  const handlePaymentFailed = (errorMsg) => {
+    console.error('❌ [PAYMENT FAILED]', errorMsg)
+    setError(`Payment failed: ${errorMsg}`)
   }
 
   const participationType = hackathon.participationType?.toUpperCase() || 'SOLO'
@@ -305,6 +352,22 @@ export default function TeamRegistrationModal({ hackathon, onClose, onSuccess })
               </>
             )}
 
+            {/* Registration Fee Display */}
+            {registrationFee > 0 && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-sm font-semibold text-yellow-900">Registration Fee Required</h3>
+                    <p className="text-xs text-yellow-800 mt-1">This hackathon has a registration fee. You will be prompted to pay during checkout.</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-yellow-600">₹{registrationFee}</p>
+                    <p className="text-xs text-yellow-700 mt-1">Fee amount</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-4 pt-4 border-t">
               <button
                 type="button"
@@ -317,14 +380,45 @@ export default function TeamRegistrationModal({ hackathon, onClose, onSuccess })
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium py-3 px-6 rounded-lg transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 flex items-center justify-center gap-2"
               >
-                {loading ? 'Registering...' : 'Register'}
+                {loading ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing...
+                  </>
+                ) : registrationFee > 0 ? (
+                  <>💳 Pay & Register </>
+                ) : (
+                  <>✓ Register </>
+                )}
               </button>
             </div>
           </form>
         </div>
       </div>
+
+      {/* Payment Modal */}
+      <PaymentModal
+        open={paymentModal.open}
+        hackathon={hackathon}
+        registrationType={paymentModal.registrationType}
+        teamData={{
+          teamName,
+          leaderRollNumber,
+          members: members.map(m => ({
+            email: m.email.trim(),
+            rollNumber: m.rollNumber.trim()
+          }))
+        }}
+        registrationFee={paymentModal.registrationFee}
+        onClose={() => setPaymentModal({ open: false, registrationFee: 0, registrationType: null })}
+        onPaymentSuccess={handlePaymentSuccess}
+        onPaymentFailed={handlePaymentFailed}
+      />
     </div>
   )
 }

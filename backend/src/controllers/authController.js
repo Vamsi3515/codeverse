@@ -1087,14 +1087,33 @@ exports.resetPassword = async (req, res) => {
 
 exports.getCurrentUser = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    console.log('🔍 [GET CURRENT USER] User ID from token:', req.user.id);
+    
+    // Try to find user in Student collection first (new structure)
+    let user = await Student.findById(req.user.id);
+    console.log('📊 [GET CURRENT USER] Student lookup result:', user ? 'Found' : 'Not found');
+    
+    // If not found in Student, try User collection (fallback)
+    if (!user) {
+      user = await User.findById(req.user.id);
+      console.log('📊 [GET CURRENT USER] User lookup result:', user ? 'Found' : 'Not found');
+    }
 
+    if (!user) {
+      console.warn('⚠️ [GET CURRENT USER] User not found in either collection');
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    console.log('✅ [GET CURRENT USER] User found:', user._id);
     res.status(200).json({
       success: true,
       user,
     });
   } catch (error) {
-    console.error(error);
+    console.error('❌ [GET CURRENT USER] Error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

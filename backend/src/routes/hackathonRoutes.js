@@ -34,6 +34,9 @@ router.post('/:hackathonId/submit', protect, submissionController.submitHackatho
 // Get leaderboard for a hackathon
 router.get('/:hackathonId/leaderboard', submissionController.getLeaderboard);
 
+// Get all submissions for a hackathon (organizer only)
+router.get('/submissions/hackathon/:hackathonId', protect, submissionController.getHackathonSubmissions);
+
 // Get user's submission for a hackathon
 router.get('/:hackathonId/submission', protect, submissionController.getUserSubmission);
 
