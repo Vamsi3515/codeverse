@@ -51,4 +51,8 @@ credentials.json
 # Docker
 docker-compose.override.yml
 
+.env
+.env.local
+.env.development.local
+
 # End of file

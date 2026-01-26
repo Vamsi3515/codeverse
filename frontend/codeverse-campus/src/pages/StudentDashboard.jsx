@@ -1152,12 +1152,39 @@ export default function StudentDashboard(){
                           <div className="mt-4 flex gap-2 flex-wrap">
                             {h.mode === 'Online' || h.mode === 'online' ? (
                               isHackathonLive(h) ? (
-                                <button 
-                                  onClick={() => handleJoinOnlineHackathon(h)} 
-                                  className="flex-1 px-3 py-2 text-xs bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-medium rounded-md transition"
-                                >
-                                  Join Now
-                                </button>
+                                (() => {
+                                  const hackId = String(h.id || h._id)
+                                  const isAttempted = attemptedHackathons.some(id => String(id) === hackId)
+                                  console.log(`🔘 [ACTIVE BUTTON] ${h.title}: hackId=${hackId}, isAttempted=${isAttempted}, attemptedIds=${attemptedHackathons}`)
+                                  
+                                  if (isAttempted) {
+                                    return (
+                                      <div className="flex gap-2 flex-1">
+                                        <div className="flex-1 px-3 py-2 text-xs font-semibold text-center bg-gradient-to-r from-slate-100 to-slate-200 rounded-md border-2 border-slate-300 shadow-sm" title="You have already attempted this hackathon">
+                                          <div className="flex items-center justify-center gap-2">
+                                            <span className="inline-flex items-center justify-center w-4 h-4 bg-green-500 text-white rounded-full text-xs font-bold">✔</span>
+                                            <span className="text-slate-700 text-xs">Attempted</span>
+                                          </div>
+                                        </div>
+                                        <button 
+                                          onClick={() => navigate(`/leaderboard/${hackId}`)}
+                                          className="flex-1 px-3 py-2 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-md font-semibold"
+                                        >
+                                          Leaderboard
+                                        </button>
+                                      </div>
+                                    )
+                                  }
+                                  
+                                  return (
+                                    <button 
+                                      onClick={() => handleJoinOnlineHackathon(h)} 
+                                      className="flex-1 px-3 py-2 text-xs bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-medium rounded-md transition"
+                                    >
+                                      Join Now
+                                    </button>
+                                  )
+                                })()
                               ) : (
                                 <div className="flex-1 px-3 py-2 text-xs bg-gray-100 text-gray-600 rounded-md text-center">Not Live Yet</div>
                               )
