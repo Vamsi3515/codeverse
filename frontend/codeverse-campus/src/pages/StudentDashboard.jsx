@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import usePreventBackNavigation from '../hooks/usePreventBackNavigation'
 import SelfieVerifier from '../components/SelfieVerifier'
 import FaceVerificationModal from '../components/FaceVerificationModal'
 import TeamRegistrationModal from '../components/TeamRegistrationModal'
@@ -245,8 +246,36 @@ export default function StudentDashboard(){
   const [registrationSuccessModal, setRegistrationSuccessModal] = useState({ open: false, hackathon: null, registration: null })
   const [apiHackathons, setApiHackathons] = useState([])
   const [loading, setLoading] = useState(true)
+  const [attemptedHackathons, setAttemptedHackathons] = useState([]) // Track attempted/submitted hackathons
   const navigate = useNavigate()
-  const { userName } = useAuth()
+  const { userName, logout, isLoggedIn, userRole } = useAuth()
+
+  // Prevent browser back button from going back to editor
+  usePreventBackNavigation('/dashboard/student')
+
+  // ✅ SECURITY: Verify user is authenticated and has correct role
+  if (!isLoggedIn || userRole !== 'student') {
+    console.error('❌ SECURITY VIOLATION: Unauthorized access attempt to Student Dashboard');
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-red-50">
+        <div className="bg-white p-8 rounded-lg shadow-lg text-center max-w-md">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h1>
+          <p className="text-gray-700 mb-6">You are not authorized to access this page. Please log in with a student account.</p>
+          <button
+            onClick={() => navigate('/login/student')}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Log In as Student
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login-select')
+  }
 
   useEffect(() => {
     console.log('🔍 [DASHBOARD INIT] ComponentDidMount - Fetching hackathons...');
@@ -254,18 +283,124 @@ export default function StudentDashboard(){
     fetchHackathons()
     // Fetch user profile for face verification
     fetchUserProfile()
-    // initialize from localStorage if present, otherwise from static data
-    try{
-      const raw = localStorage.getItem('registeredHackathons')
-      if(raw){
-        const parsed = JSON.parse(raw)
-        setRegisteredHackathons(Array.isArray(parsed) ? parsed : [])
+    // Fetch registered hackathons from backend
+    fetchMyRegistrations()
+    // Fetch attempted/submitted hackathons
+    fetchAttemptedHackathons()
+  }, [])
+
+  const fetchMyRegistrations = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        console.log('⚠️ [MY REGISTRATIONS] No token found')
         return
       }
-    }catch(e){}
-    const initial = availableHackathons.filter(h => h.registered).map(h => h.id)
-    setRegisteredHackathons(initial)
-  }, [])
+
+      const response = await fetch(`${API_URL}/registrations/my-registrations`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      const data = await response.json()
+      if (data.success && Array.isArray(data.registrations)) {
+        console.log('✅ [MY REGISTRATIONS] Fetched successfully:', data.registrations)
+        console.log('✅ [MY REGISTRATIONS] Full data structure:', JSON.stringify(data.registrations, null, 2))
+        
+        // Extract hackathon IDs - hackathonId is an object, so we need hackathonId._id
+        const registeredIds = data.registrations.map(reg => {
+          console.log('🔍 [MY REGISTRATIONS] Processing registration:', reg)
+          // hackathonId can be an object with _id or a string ID
+          const id = typeof reg.hackathonId === 'object' 
+            ? reg.hackathonId?._id 
+            : reg.hackathonId
+          console.log('🔍 [MY REGISTRATIONS] Extracted ID:', id)
+          return id
+        }).filter(Boolean)
+        
+        console.log('📋 [MY REGISTRATIONS] Final registered IDs:', registeredIds)
+        setRegisteredHackathons(registeredIds)
+        try{ localStorage.setItem('registeredHackathons', JSON.stringify(registeredIds)) }catch(e){}
+      } else {
+        console.log('⚠️ [MY REGISTRATIONS] No registrations found or error:', data)
+        setRegisteredHackathons([])
+      }
+    } catch (error) {
+      console.error('❌ [MY REGISTRATIONS] Failed to fetch:', error)
+      // Fallback to localStorage
+      try{
+        const raw = localStorage.getItem('registeredHackathons')
+        if(raw){
+          const parsed = JSON.parse(raw)
+          setRegisteredHackathons(Array.isArray(parsed) ? parsed : [])
+          return
+        }
+      }catch(e){}
+      setRegisteredHackathons([])
+    }
+  }
+
+  const fetchAttemptedHackathons = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        console.log('⚠️ [ATTEMPTED] No token found')
+        return
+      }
+
+      // Fetch all completed submissions (already filtered on backend)
+      const response = await fetch(`${API_URL}/hackathons/my-submissions`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      const data = await response.json()
+      console.log('📡 [ATTEMPTED] API Response:', data)
+      
+      if (data.success && Array.isArray(data.submissions)) {
+        // Backend now filters for completed, but let's double-check
+        const attemptedIds = data.submissions
+          .map(sub => {
+            // Handle both object and string formats
+            let id;
+            if (typeof sub.hackathonId === 'object' && sub.hackathonId) {
+              id = sub.hackathonId._id || sub.hackathonId.toString()
+            } else {
+              id = sub.hackathonId
+            }
+            // Convert ObjectId to string if needed
+            id = id?.toString ? id.toString() : String(id)
+            console.log(`📍 [ATTEMPTED] Processing submission - hackId: "${id}", status: ${sub.status}, score: ${sub.leaderboardScore}`)
+            return id
+          })
+          .filter(Boolean)
+        
+        console.log('✅ [ATTEMPTED] Final attempted IDs (strings):', attemptedIds)
+        setAttemptedHackathons(attemptedIds)
+        try { localStorage.setItem('attemptedHackathons', JSON.stringify(attemptedIds)) } catch (e) { }
+      } else {
+        console.log('⚠️ [ATTEMPTED] No submissions found or invalid response:', data)
+        setAttemptedHackathons([])
+      }
+    } catch (error) {
+      console.error('❌ [ATTEMPTED] Failed to fetch:', error)
+      // Fallback to localStorage
+      try {
+        const raw = localStorage.getItem('attemptedHackathons')
+        if (raw) {
+          const parsed = JSON.parse(raw)
+          setAttemptedHackathons(Array.isArray(parsed) ? parsed : [])
+          console.log('📦 [ATTEMPTED] Using localStorage fallback:', parsed)
+          return
+        }
+      } catch (e) { }
+      setAttemptedHackathons([])
+    }
+  }
 
   const fetchHackathons = async () => {
     console.log('📡 [API CALL] Starting fetchHackathons...');
@@ -292,17 +427,21 @@ export default function StudentDashboard(){
             endDate: h.endDate,
             mode: h.mode.charAt(0).toUpperCase() + h.mode.slice(1), // Capitalize
             status: h.displayStatus || 'Upcoming',
+            displayStatus: h.displayStatus || 'Upcoming', // Keep both for filter
             participationType: h.participationType,
             minTeamSize: h.minTeamSize,
             maxTeamSize: h.maxTeamSize,
             registeredCount: h.registeredCount,
             maxParticipants: h.maxParticipants,
             image: h.bannerImage || 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=1200&q=80',
+            bannerImage: h.bannerImage || '', // Add bannerImage field
             latitude: h.location?.latitude,
             longitude: h.location?.longitude,
             location: h.location // Include full location object
           };
           console.log(`🔄 [TRANSFORM ${idx + 1}] Transformed hackathon:`, transformed);
+          console.log(`🔄 [TRANSFORM ${idx + 1}] bannerImage:`, transformed.bannerImage);
+          console.log(`🔄 [TRANSFORM ${idx + 1}] displayStatus:`, transformed.displayStatus);
           console.log(`🔄 [TRANSFORM ${idx + 1}] Location data:`, transformed.location);
           return transformed;
         });
@@ -425,6 +564,22 @@ export default function StudentDashboard(){
   console.log('📊 [DASHBOARD STATE] allHackathons:', allHackathons);
 
   const filtered = allHackathons.filter(h => {
+    // Available Hackathons: Show UPCOMING (future) OR LIVE (currently running) hackathons that user is NOT registered for
+    const now = new Date()
+    const startDate = new Date(h.startDate)
+    const endDate = new Date(h.endDate)
+    
+    // Show if upcoming (not started yet) OR currently running (started but not ended)
+    const isUpcoming = startDate > now; // Hackathon is in the future
+    const isLive = now >= startDate && now <= endDate; // Hackathon is currently running
+    const isAvailable = isUpcoming || isLive; // Show both upcoming and live
+    
+    const isNotRegistered = !registeredHackathons.includes(h.id || h._id)
+    
+    console.log(`🔍 [FILTER DEBUG] ${h.title}: startDate=${h.startDate}, endDate=${h.endDate}, isUpcoming=${isUpcoming}, isLive=${isLive}, isAvailable=${isAvailable}, isNotRegistered=${isNotRegistered}`)
+    
+    if(!isAvailable || !isNotRegistered) return false
+    
     if(tab === 'Online' && h.mode !== 'Online' && h.mode !== 'online') return false
     if(tab === 'Near Me' && h.mode !== 'Offline' && h.mode !== 'offline') return false
     const searchText = `${h.title} ${h.college || ''}`.toLowerCase()
@@ -432,7 +587,44 @@ export default function StudentDashboard(){
     return true
   })
 
-  const myHackathons = allHackathons.filter(h => registeredHackathons.includes(h.id || h._id))
+  // My Hackathons: Only registered hackathons, organized by status
+  const registeredHackathonsData = allHackathons.filter(h => {
+    const hackId = h.id || h._id
+    const isRegistered = registeredHackathons.includes(hackId)
+    console.log(`🔍 [REGISTERED DEBUG] ${h.title}: hackId=${hackId}, isRegistered=${isRegistered}, registeredHackathons=${JSON.stringify(registeredHackathons)}`)
+    return isRegistered
+  })
+  
+  // Helper function to check if hackathon is currently running (between start and end date)
+  const isHackathonRunning = (h) => {
+    const now = new Date();
+    const startDate = new Date(h.startDate);
+    const endDate = new Date(h.endDate);
+    return now >= startDate && now <= endDate;
+  };
+  
+  // Helper function to determine actual status (including real-time check)
+  const getHackathonStatus = (h) => {
+    const now = new Date();
+    const startDate = new Date(h.startDate);
+    const endDate = new Date(h.endDate);
+    
+    // If current time is between start and end, it's ACTIVE (running now)
+    if (now >= startDate && now <= endDate) {
+      return 'active';
+    }
+    
+    // Otherwise use displayStatus from API
+    return (h.displayStatus || '').toLowerCase();
+  };
+  
+  // Use displayStatus for categorization (Upcoming, Active, Completed)
+  // But also check real-time if hackathon is currently running
+  const pastHackathons = registeredHackathonsData.filter(h => getHackathonStatus(h) === 'completed')
+  const activeHackathons = registeredHackathonsData.filter(h => getHackathonStatus(h) === 'active')
+  const upcomingHackathons = registeredHackathonsData.filter(h => getHackathonStatus(h) === 'upcoming')
+  
+  const myHackathons = registeredHackathonsData
 
   async function openQr(item) {
     try {
@@ -602,74 +794,88 @@ export default function StudentDashboard(){
   const handleCalendarConnect = async () => {
     try {
       const hackathon = registrationSuccessModal.hackathon
-      if (!hackathon) return false
+      if (!hackathon) {
+        console.error('❌ [CALENDAR] No hackathon found')
+        return false
+      }
 
-      // Get auth URL first (try new endpoint, fallback to legacy)
-      let authResponse = await fetch(`${API_URL}/google-calendar/auth`, {
-        method: 'POST',
+      console.log('📅 [CALENDAR] Starting calendar connection for:', hackathon.title)
+
+      // Get auth URL from backend
+      const authResponse = await fetch(`${API_URL}/calendar/auth-url`, {
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       })
-      let authData = await authResponse.json()
+      const authData = await authResponse.json()
 
       if (!authData.success || !authData.authUrl) {
-        authResponse = await fetch(`${API_URL}/calendar/auth-url`, {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        })
-        authData = await authResponse.json()
-      }
-
-      if (!authData.success || !authData.authUrl) {
-        console.error('❌ [CALENDAR] Failed to get auth URL')
+        console.error('❌ [CALENDAR] Failed to get auth URL:', authData)
+        alert('Failed to connect Google Calendar. Please try again.')
         return false
       }
 
+      console.log('✅ [CALENDAR] Auth URL obtained, opening OAuth popup...')
+
       // Open OAuth popup
-      const popup = window.open(authData.authUrl, 'Google Calendar', 'width=600,height=600')
+      const popup = window.open(authData.authUrl, 'Google Calendar', 'width=700,height=600')
       
-      // Wait for OAuth completion (listen for message or poll)
+      if (!popup) {
+        alert('Please allow popups to connect Google Calendar')
+        return false
+      }
+
+      // Wait for OAuth completion
       return new Promise((resolve) => {
         const checkInterval = setInterval(async () => {
           if (popup && popup.closed) {
             clearInterval(checkInterval)
+            console.log('📅 [CALENDAR] OAuth popup closed, adding event to calendar...')
             
-            // Try to add event after auth
+            // Add event to calendar after auth
             const success = await addHackathonToCalendar(hackathon)
             resolve(success)
           }
-        }, 1000)
+        }, 500) // Check every 500ms
 
-        // Timeout after 2 minutes
+        // Timeout after 3 minutes
         setTimeout(() => {
           clearInterval(checkInterval)
-          if (popup && !popup.closed) popup.close()
+          if (popup && !popup.closed) {
+            popup.close()
+          }
+          console.warn('⚠️ [CALENDAR] OAuth connection timeout')
           resolve(false)
-        }, 120000)
+        }, 180000)
       })
     } catch (error) {
       console.error('❌ [CALENDAR] Connection failed:', error)
+      alert('Error connecting to Google Calendar. Please try again.')
       return false
     }
   }
 
   const addHackathonToCalendar = async (hackathon) => {
     try {
+      console.log('📝 [CALENDAR] Creating calendar event for:', hackathon.title)
+      
       const startDate = new Date(hackathon.startDate || hackathon.date)
-      const endDate = new Date(hackathon.endDate || hackathon.date)
+      const endDate = new Date(hackathon.endDate || new Date(startDate.getTime() + 24 * 60 * 60 * 1000))
       
       const eventDetails = {
+        hackathonId: hackathon._id || hackathon.id,
         hackathonTitle: hackathon.title,
         hackathonMode: hackathon.mode,
         startDateTime: startDate.toISOString(),
         endDateTime: endDate.toISOString(),
-        organizerName: hackathon.organizer || hackathon.college,
-        venue: hackathon.location || null,
-        platformLink: hackathon.platformLink || null
+        organizerName: hackathon.organizer || hackathon.college || 'Organizer',
+        venue: hackathon.location ? `${hackathon.location.venueName}, ${hackathon.location.city}` : null
       }
 
-      // Use new endpoint (fallback to legacy)
-      let response = await fetch(`${API_URL}/google-calendar/add-event`, {
+      console.log('📤 [CALENDAR] Sending event creation request:', eventDetails)
+
+      const response = await fetch(`${API_URL}/calendar/add-event`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -677,23 +883,27 @@ export default function StudentDashboard(){
         },
         body: JSON.stringify(eventDetails)
       })
-      if (!response.ok) {
-        response = await fetch(`${API_URL}/calendar/add-event`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          },
-          body: JSON.stringify(eventDetails)
-        })
-      }
 
       const data = await response.json()
-      console.log('✅ [CALENDAR] Event creation response:', data)
+      console.log('📨 [CALENDAR] Event creation response:', data)
 
-      return data.success
+      if (!data.success) {
+        console.error('❌ [CALENDAR] Failed to create event:', data.message)
+        if (data.error === 'NO_GOOGLE_TOKEN') {
+          alert('Please complete the Google Calendar authentication.')
+        } else {
+          alert(data.message || 'Failed to add event to calendar')
+        }
+        return false
+      }
+
+      console.log('✅ [CALENDAR] Event created successfully:', data.eventId)
+      console.log('📋 [CALENDAR] Event link:', data.eventLink)
+      
+      return true
     } catch (error) {
       console.error('❌ [CALENDAR] Failed to add event:', error)
+      alert('Failed to add hackathon to calendar. Please try again.')
       return false
     }
   }
@@ -701,6 +911,34 @@ export default function StudentDashboard(){
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto space-y-8">
+
+        {/* WELCOME HEADER WITH LOGOUT */}
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg shadow-md p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => navigate('/dashboard/student')}
+                className="flex items-center gap-2 px-3 py-2 bg-white/20 hover:bg-white/30 text-white rounded-md transition font-semibold text-sm"
+                title="Go to home (Student Dashboard)"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+                </svg>
+                Home
+              </button>
+              <div>
+                <h1 className="text-3xl font-bold text-white">Welcome, {userProfile?.firstName || userName || 'Student'}!</h1>
+                <p className="text-blue-100 mt-1 text-sm">Ready to explore amazing hackathons?</p>
+              </div>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 bg-white text-blue-600 font-semibold rounded-md hover:bg-blue-50 transition shadow-sm"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
 
         {/* FILTER & SEARCH BAR */}
         <div className="bg-white rounded-lg shadow p-4">
@@ -722,7 +960,18 @@ export default function StudentDashboard(){
 
         {/* 1) AVAILABLE HACKATHONS */}
         <section className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Available Hackathons</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Available Hackathons</h2>
+            <button 
+              onClick={() => {
+                setLoading(true)
+                fetchHackathons()
+              }}
+              className="px-3 py-1 text-sm bg-blue-50 text-blue-600 border border-blue-200 rounded-md hover:bg-blue-100 transition"
+            >
+              ↻ Refresh
+            </button>
+          </div>
           
           {loading ? (
             <div className="flex items-center justify-center py-12">
@@ -764,6 +1013,16 @@ export default function StudentDashboard(){
                       const isRegistered = registeredHackathons.includes(h.id || h._id)
                       const status = (h.status || '').toLowerCase()
                       const isOnline = (h.mode || '').toLowerCase() === 'online'
+                      const hackId = String(h.id || h._id)
+                      const isAttempted = attemptedHackathons.some(id => String(id) === hackId)
+                      
+                      console.log(`🔘 [BUTTON LOGIC] ${h.title}:`, {
+                        hackId,
+                        isRegistered,
+                        isAttempted,
+                        attemptedHackathons: attemptedHackathons.map(String),
+                        match: attemptedHackathons.some(id => String(id) === hackId)
+                      })
 
                       if (status === 'completed') {
                         return <div className="flex-1 sm:flex-auto px-3 py-2 text-sm text-gray-500 font-medium text-center bg-gray-100 rounded-md">Completed</div>
@@ -771,6 +1030,25 @@ export default function StudentDashboard(){
                       
                       if (status === 'active' || status === 'ongoing') {
                         if (isRegistered) {
+                          // If attempted, show "Attempted" badge with Leaderboard button
+                          if (isAttempted) {
+                            return (
+                              <div className="flex gap-2 flex-1 sm:flex-auto">
+                                <div className="flex-1 px-3 py-2 text-sm font-semibold text-center bg-gradient-to-r from-slate-100 to-slate-200 rounded-md cursor-not-allowed border-2 border-slate-300 shadow-sm" title="You have already attempted this hackathon">
+                                  <div className="flex items-center justify-center gap-2">
+                                    <span className="inline-flex items-center justify-center w-5 h-5 bg-green-500 text-white rounded-full text-xs font-bold">✔</span>
+                                    <span className="text-slate-700">Attempted</span>
+                                  </div>
+                                </div>
+                                <button 
+                                  onClick={() => navigate(`/leaderboard/${h.id || h._id}`)}
+                                  className="flex-1 px-3 py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-md font-semibold"
+                                >
+                                  See Leaderboard
+                                </button>
+                              </div>
+                            )
+                          }
                           return (
                             <button 
                               onClick={() => isOnline ? handleJoinOnlineHackathon(h) : openQr(h)} 
@@ -809,48 +1087,126 @@ export default function StudentDashboard(){
           {myHackathons.length === 0 ? (
             <p className="text-sm text-gray-500">You have not registered for any hackathons yet.</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {myHackathons.map(h => (
-                <article key={h.id} className="bg-white rounded-lg border border-gray-100 shadow-sm">
-                  <div className="p-4">
-                    <h3 className="text-sm font-semibold text-gray-900">{h.title}</h3>
-                    <p className="text-xs text-gray-500 mt-1">{h.mode} • {h.status === 'Active' ? 'Active' : h.status}</p>
-                  </div>
+            <div className="space-y-8">
+              {/* UPCOMING HACKATHONS */}
+              {upcomingHackathons.length > 0 && (
+                <div>
+                  <h3 className="text-md font-semibold text-gray-800 mb-3 pb-2 border-b border-gray-200">Upcoming</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {upcomingHackathons.map(h => (
+                      <article key={h.id} className="bg-white rounded-xl shadow-sm hover:shadow-md transition overflow-hidden flex flex-col">
+                        {/* Banner Image */}
+                        <div className="h-40 w-full overflow-hidden bg-gray-100">
+                          <img 
+                            src={h.bannerImage ? (h.bannerImage.startsWith('/uploads/') ? `http://localhost:5000${h.bannerImage}` : h.bannerImage) : 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=1200&q=80'}
+                            alt={h.title}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
 
-                  <div className="px-4 pb-4 pt-2">
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                      {h.mode === 'Online' || h.mode === 'online' ? (
-                        // Online hackathon - show Join button if live
-                        isHackathonLive(h) && (h.status === 'Active' || h.status === 'ongoing') ? (
-                          <button 
-                            onClick={() => handleJoinOnlineHackathon(h)} 
-                            className="w-full sm:w-auto px-3 py-2 text-sm bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold rounded-md flex items-center justify-center gap-2 shadow-sm"
-                          >
-                            <span className="animate-pulse">🔴</span>
-                            <span>Join Hackathon (LIVE)</span>
-                          </button>
-                        ) : (
-                          // Show "Not Live Yet" only if NOT completed
-                          h.status !== 'Completed' && (
-                            <div className="w-full sm:w-auto px-3 py-2 text-sm bg-gray-100 text-gray-600 rounded-md text-center">
-                              ⏰ Not Live Yet
-                            </div>
-                          )
-                        )
-                      ) : (
-                        // Offline hackathon - show QR code and location
-                        <>
-                          <button onClick={()=>openQr(h)} className="w-full sm:w-auto px-3 py-2 text-sm bg-orange-100 text-orange-700 rounded-md">View QR Code</button>
-                          <button onClick={()=>{console.log('🔘 [BUTTON CLICK] Get Location clicked for:', h); showDistance(h);}} className="w-full sm:w-auto px-3 py-2 text-sm bg-indigo-50 text-indigo-700 rounded-md">Get Location & Distance</button>
-                        </>
-                      )}
-                      {h.status === 'Completed' && (
-                        <button onClick={()=>openResult(h)} className="w-full sm:w-auto px-3 py-2 text-sm bg-gray-100 text-gray-800 rounded-md">View Result</button>
-                      )}
-                    </div>
+                        {/* Content */}
+                        <div className="p-4 flex-1 flex flex-col">
+                          <h3 className="text-lg font-semibold text-gray-900">{h.title}</h3>
+                          <p className="text-sm text-gray-600 mt-1">{new Date(h.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                          <p className="text-xs text-gray-500 mt-2">{h.mode} • {h.participationType?.toUpperCase() || 'SOLO'}</p>
+                          
+                          {/* Buttons */}
+                          <div className="mt-4 flex gap-2">
+                            {h.mode === 'Offline' && (
+                              <button onClick={()=>{console.log('🔘 [BUTTON CLICK] Get Location clicked for:', h); showDistance(h);}} className="flex-1 px-3 py-2 text-xs bg-indigo-50 text-indigo-700 rounded-md hover:bg-indigo-100 transition font-medium">Get Location</button>
+                            )}
+                          </div>
+                        </div>
+                      </article>
+                    ))}
                   </div>
-                </article>
-              ))}
+                </div>
+              )}
+
+              {/* ACTIVE HACKATHONS */}
+              {activeHackathons.length > 0 && (
+                <div>
+                  <h3 className="text-md font-semibold text-gray-800 mb-3 pb-2 border-b border-green-200">Active</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {activeHackathons.map(h => (
+                      <article key={h.id} className="bg-white rounded-xl shadow-sm hover:shadow-md transition overflow-hidden flex flex-col border-l-4 border-green-500">
+                        {/* Banner Image */}
+                        <div className="h-40 w-full overflow-hidden bg-gray-100">
+                          <img 
+                            src={h.bannerImage ? (h.bannerImage.startsWith('/uploads/') ? `http://localhost:5000${h.bannerImage}` : h.bannerImage) : 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=1200&q=80'}
+                            alt={h.title}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-4 flex-1 flex flex-col">
+                          <div className="flex items-start justify-between gap-2">
+                            <h3 className="text-lg font-semibold text-gray-900">{h.title}</h3>
+                            <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full whitespace-nowrap">🔴 Live</span>
+                          </div>
+                          <p className="text-sm text-gray-600 mt-1">{new Date(h.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                          <p className="text-xs text-gray-500 mt-2">{h.mode} • {h.participationType?.toUpperCase() || 'SOLO'}</p>
+                          
+                          {/* Buttons */}
+                          <div className="mt-4 flex gap-2 flex-wrap">
+                            {h.mode === 'Online' || h.mode === 'online' ? (
+                              isHackathonLive(h) ? (
+                                <button 
+                                  onClick={() => handleJoinOnlineHackathon(h)} 
+                                  className="flex-1 px-3 py-2 text-xs bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-medium rounded-md transition"
+                                >
+                                  Join Now
+                                </button>
+                              ) : (
+                                <div className="flex-1 px-3 py-2 text-xs bg-gray-100 text-gray-600 rounded-md text-center">Not Live Yet</div>
+                              )
+                            ) : (
+                              <>
+                                <button onClick={()=>openQr(h)} className="flex-1 px-3 py-2 text-xs bg-orange-100 text-orange-700 rounded-md hover:bg-orange-200 transition font-medium">QR Code</button>
+                                <button onClick={()=>{console.log('🔘 [BUTTON CLICK] Get Location clicked for:', h); showDistance(h);}} className="flex-1 px-3 py-2 text-xs bg-indigo-50 text-indigo-700 rounded-md hover:bg-indigo-100 transition font-medium">Location</button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* PAST HACKATHONS */}
+              {pastHackathons.length > 0 && (
+                <div>
+                  <h3 className="text-md font-semibold text-gray-800 mb-3 pb-2 border-b border-gray-300">Past</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {pastHackathons.map(h => (
+                      <article key={h.id} className="bg-white rounded-xl shadow-sm hover:shadow-md transition overflow-hidden flex flex-col opacity-85">
+                        {/* Banner Image */}
+                        <div className="h-40 w-full overflow-hidden bg-gray-200">
+                          <img 
+                            src={h.bannerImage ? (h.bannerImage.startsWith('/uploads/') ? `http://localhost:5000${h.bannerImage}` : h.bannerImage) : 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=1200&q=80'}
+                            alt={h.title}
+                            className="w-full h-full object-cover grayscale"
+                          />
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-4 flex-1 flex flex-col">
+                          <h3 className="text-lg font-semibold text-gray-900">{h.title}</h3>
+                          <p className="text-sm text-gray-600 mt-1">{new Date(h.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                          <p className="text-xs text-gray-500 mt-2">{h.mode} • Completed</p>
+                          
+                          {/* Button */}
+                          <div className="mt-4">
+                            <button onClick={()=>openResult(h)} className="w-full px-3 py-2 text-xs bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200 transition font-medium">View Result</button>
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </section>

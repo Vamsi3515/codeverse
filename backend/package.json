@@ -26,6 +26,7 @@
     "express": "^5.2.1",
     "geolib": "^3.3.4",
     "googleapis": "^170.1.0",
+    "groq-sdk": "^0.7.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.20.3",
     "multer": "^2.0.2",
@@ -34,7 +35,7 @@
     "sharp": "^0.34.5",
     "socket.io": "^4.8.1",
     "streamifier": "^0.1.1",
-    "uuid": "^13.0.0"
+    "uuid": "^9.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.11"

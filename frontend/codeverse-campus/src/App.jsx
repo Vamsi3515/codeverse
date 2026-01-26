@@ -1,8 +1,9 @@
 import React, { Suspense } from 'react'
 import './App.css'
 import './index.css'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useLocation } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
+import { StudentProtectedRoute, OrganizerProtectedRoute, ProtectedRoute } from './components/ProtectedRoute'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import Landing from './pages/Landing'
@@ -23,6 +24,7 @@ import ViewRegistrations from './pages/ViewRegistrations'
 import EditHackathon from './pages/EditHackathon'
 import StudentRegistrationQR from './pages/StudentRegistrationQR'
 import RegistrationVerification from './pages/RegistrationVerification'
+import Leaderboard from './pages/Leaderboard'
 // Lazy load OnlineEditor to prevent app crash if it fails
 const OnlineEditor = React.lazy(() => import('./pages/OnlineEditor'));
 import ErrorBoundary from './components/ErrorBoundary';
@@ -44,6 +46,9 @@ const SAMPLE = [
 ]
 
 function App(){
+  const location = useLocation()
+  const isEditorPage = location.pathname.startsWith('/editor/')
+  
   return (
     <AuthProvider>
       <div>
@@ -57,33 +62,76 @@ function App(){
           <Route path="/login/student" element={<StudentLogin />} />
           <Route path="/login/organizer" element={<OrganizerLogin />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
-          <Route path="/dashboard/student" element={<StudentDashboard />} />
-          <Route path="/dashboard/organizer" element={<OrganizerDashboard />} />
-          <Route path="/create-hackathon" element={<CreateHackathon />} />
-          <Route path="/hackathon/:id/manage" element={<ManageHackathon />} />
-          <Route path="/hackathon/:id/edit" element={<EditHackathon />} />
-          <Route path="/hackathon/:hackathonId/registrations" element={<ViewRegistrations />} />
-          <Route path="/hackathon/:id/details" element={<HackathonDetails />} />
-          <Route path="/previous-hackathon-details" element={<PreviousHackathonDetails />} />
+          
+          {/* Protected Student Routes */}
+          <Route path="/dashboard/student" element={
+            <StudentProtectedRoute>
+              <StudentDashboard />
+            </StudentProtectedRoute>
+          } />
+          <Route path="/hackathon/:id/details" element={
+            <StudentProtectedRoute>
+              <HackathonDetails />
+            </StudentProtectedRoute>
+          } />
+          <Route path="/previous-hackathon-details" element={
+            <StudentProtectedRoute>
+              <PreviousHackathonDetails />
+            </StudentProtectedRoute>
+          } />
           <Route path="/editor/:id" element={
-             <ErrorBoundary>
-               <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading Editor...</div>}>
-                 <OnlineEditor />
-               </Suspense>
-             </ErrorBoundary>
+            <StudentProtectedRoute>
+              <ErrorBoundary>
+                <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading Editor...</div>}>
+                  <OnlineEditor />
+                </Suspense>
+              </ErrorBoundary>
+            </StudentProtectedRoute>
+          } />
+          <Route path="/hackathons/:id/leaderboard" element={
+            <StudentProtectedRoute>
+              <Leaderboard />
+            </StudentProtectedRoute>
           } />
           
-          {/* Public QR Code Registration Details Page */}
+          {/* Protected Organizer Routes */}
+          <Route path="/dashboard/organizer" element={
+            <OrganizerProtectedRoute>
+              <OrganizerDashboard />
+            </OrganizerProtectedRoute>
+          } />
+          <Route path="/create-hackathon" element={
+            <OrganizerProtectedRoute>
+              <CreateHackathon />
+            </OrganizerProtectedRoute>
+          } />
+          <Route path="/hackathon/:id/manage" element={
+            <OrganizerProtectedRoute>
+              <ManageHackathon />
+            </OrganizerProtectedRoute>
+          } />
+          <Route path="/hackathon/:id/edit" element={
+            <OrganizerProtectedRoute>
+              <EditHackathon />
+            </OrganizerProtectedRoute>
+          } />
+          <Route path="/hackathon/:hackathonId/registrations" element={
+            <OrganizerProtectedRoute>
+              <ViewRegistrations />
+            </OrganizerProtectedRoute>
+          } />
+          
+          {/* Public QR Code Registration Details Page (No Auth Required) */}
           <Route path="/registration/:registrationId" element={<StudentRegistrationQR />} />
           
-          {/* QR Code Verification Page - Shows full registration details when QR is scanned */}
+          {/* QR Code Verification Page - Shows full registration details when QR is scanned (No Auth Required) */}
           <Route path="/registration/verify/:registrationId" element={<RegistrationVerification />} />
           
           {/* Fallback to landing for unmatched routes */}
           <Route path="*" element={<Landing />} />
         </Routes>
 
-        <Footer />
+        {!isEditorPage && <Footer />}
       </div>
     </AuthProvider>
   )

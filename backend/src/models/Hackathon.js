@@ -45,7 +45,11 @@ const hackathonSchema = new mongoose.Schema(
       type: Date,
     },
     duration: {
-      type: Number, // in hours
+      type: Number, // in hours - hackathon window duration (how long hackathon is open)
+    },
+    competitionDuration: {
+      type: Number, // in minutes - time allowed after user joins to submit solution (optional)
+      default: null,
     },
     // For offline hackathons
     location: {

@@ -1,32 +1,62 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { LogOut } from 'lucide-react'
 import OrganizerHackathonCard from '../components/OrganizerHackathonCard'
+import { useAuth } from '../context/AuthContext'
 
 const API_URL = 'http://localhost:5000/api'
 
 // Organizer Dashboard with real backend integration and role-based access
 export default function OrganizerDashboard(){
   const navigate = useNavigate()
+  const { logout, userName, userRole, isLoggedIn } = useAuth()
   const [previousHackathons, setPreviousHackathons] = useState([])
   const [activeHackathons, setActiveHackathons] = useState([])
   const [scheduledHackathons, setScheduledHackathons] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [userRole, setUserRole] = useState('')
   const [canCreateHackathon, setCanCreateHackathon] = useState(false)
   const [deleteToast, setDeleteToast] = useState('')
 
+  // ✅ SECURITY: Verify user is authenticated and has correct role
+  if (!isLoggedIn || userRole !== 'organizer') {
+    console.error('❌ SECURITY VIOLATION: Unauthorized access attempt to Organizer Dashboard');
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-red-50">
+        <div className="bg-white p-8 rounded-lg shadow-lg text-center max-w-md">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h1>
+          <p className="text-gray-700 mb-6">You are not authorized to access this page. Please log in with an organizer account.</p>
+          <button
+            onClick={() => navigate('/login/organizer')}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Log In as Organizer
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   useEffect(() => {
-    // Check user role
-    const role = localStorage.getItem('userRole')
-    setUserRole(role)
-    
     // Check if user can create hackathons
     const allowedRoles = ['organizer', 'ORGANIZER', 'STUDENT_COORDINATOR']
-    setCanCreateHackathon(allowedRoles.includes(role))
+    setCanCreateHackathon(allowedRoles.includes(userRole))
     
     fetchOrganizerHackathons()
   }, [])
+
+  // Auto-hide toast after 3 seconds
+  useEffect(() => {
+    if (deleteToast) {
+      const timer = setTimeout(() => setDeleteToast(''), 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [deleteToast])
+
+  const handleLogout = () => {
+    logout()
+    navigate('/')
+  }
 
   // Auto-hide toast after 3 seconds
   useEffect(() => {
@@ -113,10 +143,18 @@ export default function OrganizerDashboard(){
       }),
       participants: h.participantCount || 0,
       registrations: h.registeredCount || 0,
-      imageUrl: h.bannerImage || 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=1200&q=80',
+      imageUrl: (() => {
+        const bannerImg = h.bannerImage || 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=1200&q=80';
+        // Convert relative paths to full URLs
+        if (bannerImg.startsWith('/uploads/')) {
+          return `http://localhost:5000${bannerImg}`;
+        }
+        return bannerImg;
+      })(),
       status: displayStatus,
       creatorLabel: creatorLabel,
-      createdByRole: h.createdByRole
+      createdByRole: h.createdByRole,
+      _debugBannerImage: (console.log(`🖼️ FRONTEND Dashboard: Hackathon "${h.title}" bannerImage:`, h.bannerImage), null)
     }
   }
 
@@ -167,14 +205,26 @@ export default function OrganizerDashboard(){
               <h1 className="text-3xl font-bold text-slate-900">
                 {userRole === 'STUDENT_COORDINATOR' ? 'Student Coordinator Dashboard' : 'Organizer Dashboard'}
               </h1>
-              <p className="text-slate-600 mt-1">Manage your hackathons</p>
+              <p className="text-slate-600 mt-1">Welcome, {userName || 'Organizer'}</p>
             </div>
 
-            {canCreateHackathon && (
-              <div className="flex-shrink-0">
-                <button onClick={() => navigate('/create-hackathon')} className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-md">+ Create Hackathon</button>
-              </div>
-            )}
+            <div className="flex flex-col sm:flex-row gap-3">
+              {canCreateHackathon && (
+                <button 
+                  onClick={() => navigate('/create-hackathon')} 
+                  className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-md font-medium transition"
+                >
+                  + Create Hackathon
+                </button>
+              )}
+              <button 
+                onClick={handleLogout}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-medium transition flex items-center justify-center gap-2"
+              >
+                <LogOut className="w-4 h-4" />
+                Logout
+              </button>
+            </div>
           </div>
         </div>
 

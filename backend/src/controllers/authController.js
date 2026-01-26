@@ -13,6 +13,41 @@ const { geocodeAddress } = require('../utils/geocodingService');
 // Single exception allowed to bypass role separation for login
 const ROLE_EXCEPTION_EMAIL = '22b61a0557@sitam.co.in';
 
+// Blocked personal email domains for organizer registration
+const BLOCKED_EMAIL_DOMAINS = [
+  'gmail.com',
+  'yahoo.com',
+  'hotmail.com',
+  'outlook.com',
+  'mail.com',
+  'mailinator.com',
+  'temp-mail.org',
+  'guerrillamail.com',
+  'yandex.com',
+  'protonmail.com',
+  'tutanota.com',
+  'aol.com',
+  'icloud.com',
+  'qq.com',
+  '163.com',
+  '126.com',
+];
+
+// Helper function to validate organizer email domain
+const isValidOrganizerEmail = (email) => {
+  const domain = email.toLowerCase().split('@')[1];
+  if (!domain) return false;
+  
+  // Block personal email domains
+  if (BLOCKED_EMAIL_DOMAINS.includes(domain)) {
+    return false;
+  }
+  
+  // Allow organizational/educational domains (.edu, .org, .co.in, company.com, etc.)
+  // Must have a proper domain structure
+  return domain.includes('.');
+};
+
 // ============ STUDENT ENDPOINTS ============
 
 exports.studentSignup = async (req, res) => {
@@ -23,6 +58,8 @@ exports.studentSignup = async (req, res) => {
     if (!firstName || !lastName || !email || !password || !phone || !college) {
       return res.status(400).json({ success: false, message: 'Please provide all required fields' });
     }
+
+    const normalizedEmail = email.toLowerCase();
 
     // Validate college email
     const emailValidation = validateCollegeEmail(email);
@@ -35,13 +72,13 @@ exports.studentSignup = async (req, res) => {
     }
 
     // STRICT SEPARATION: Check if email already exists in Student collection (case-insensitive)
-    const existingStudent = await Student.findOne({ email: email.toLowerCase() });
+    const existingStudent = await Student.findOne({ email: normalizedEmail });
     if (existingStudent) {
       return res.status(400).json({ success: false, message: 'This email is already registered as a student.' });
     }
 
     // BLOCK CROSS-REGISTRATION: Check if email exists in Organizer collection (case-insensitive)
-    const existingOrganizer = await Organizer.findOne({ email: email.toLowerCase() });
+    const existingOrganizer = await Organizer.findOne({ email: normalizedEmail });
     if (existingOrganizer) {
       return res.status(400).json({ 
         success: false, 
@@ -49,7 +86,7 @@ exports.studentSignup = async (req, res) => {
       });
     }
 
-    // Check for duplicate student credentials
+    // Check for duplicate student credentials BEFORE sending OTP
     const duplicateChecks = {};
     if (regNumber) duplicateChecks.regNumber = regNumber;
     if (collegeIdCardHash) duplicateChecks.collegeIdCardHash = collegeIdCardHash;
@@ -67,79 +104,61 @@ exports.studentSignup = async (req, res) => {
       }
     }
 
-    // Create student
-    const student = new Student({
-      firstName,
-      lastName,
-      email,
-      password,
-      phone,
-      college,
-      collegeAddress: collegeAddress || null,
-      branch,
-      semester,
-      regNumber,
-      collegeIdCard: collegeIdCard || null,
-      collegeIdCardHash: collegeIdCardHash || null,
-      liveSelfie: liveSelfie || null,
-      selfieHash: selfieHash || null,
-    });
-
-    // Geocode college address if provided
-    if (collegeAddress) {
-      try {
-        const geoResult = await geocodeAddress(collegeAddress);
-        student.collegeLat = geoResult.latitude;
-        student.collegeLng = geoResult.longitude;
-        console.log(`✅ Geocoded college address: ${collegeAddress} -> (${geoResult.latitude}, ${geoResult.longitude})`);
-      } catch (geoError) {
-        console.warn('⚠️ Failed to geocode college address:', geoError.message);
-        // Don't fail registration if geocoding fails - can be updated later
-      }
-    }
-
     // Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpExpiry = new Date(Date.now() + 1 * 60 * 1000);
-    
-    student.emailOTP = otp;
-    student.otpExpiry = otpExpiry;
-    student.isEmailVerified = false;
+    const otpExpiry = new Date(Date.now() + 1 * 60 * 1000); // 1 minute
 
-    await student.save();
-    console.log('✅ Student registered:', student.email);
+    // Store OTP in temporary verification record (not in Student record yet)
+    await OTPVerification.deleteMany({ identifier: `student:${normalizedEmail}`, type: 'email' });
+    
+    const otpRecord = new OTPVerification({
+      identifier: `student:${normalizedEmail}`,
+      otp,
+      type: 'email',
+      expiresAt: otpExpiry,
+      verified: false,
+      attempts: 0,
+      data: {
+        firstName,
+        lastName,
+        password,
+        phone,
+        college,
+        collegeAddress: collegeAddress || null,
+        branch,
+        semester,
+        regNumber,
+        collegeIdCard: collegeIdCard || null,
+        collegeIdCardHash: collegeIdCardHash || null,
+        liveSelfie: liveSelfie || null,
+        selfieHash: selfieHash || null,
+      }
+    });
+
+    await otpRecord.save();
+    console.log('✅ [SIGNUP] OTP created for:', normalizedEmail);
 
     // Send OTP email
     const studentName = `${firstName} ${lastName}`;
     try {
       await sendEmail({
-        email: student.email,
+        email: normalizedEmail,
         subject: 'CodeVerse Campus - Email Verification OTP',
         message: generateOTPEmail(studentName, otp),
       });
-      console.log('✅ OTP email sent to:', student.email);
+      console.log('✅ [SIGNUP] OTP email sent to:', normalizedEmail);
     } catch (emailError) {
-      await Student.findByIdAndDelete(student._id);
-      console.error('❌ Email sending failed');
+      console.error('❌ [SIGNUP] Email sending failed:', emailError);
       return res.status(500).json({
         success: false,
         message: 'Failed to send verification email. Please try again.',
       });
     }
 
-    const token = generateToken(student._id);
-
-    res.status(201).json({
+    res.status(200).json({
       success: true,
-      token,
-      message: 'OTP sent to your email. Please verify to continue.',
-      user: {
-        id: student._id,
-        firstName: student.firstName,
-        lastName: student.lastName,
-        email: student.email,
-        isEmailVerified: false,
-      },
+      message: 'OTP sent to your email. Please verify your email to complete registration.',
+      email: normalizedEmail,
     });
   } catch (error) {
     console.error(error);
@@ -263,61 +282,122 @@ exports.verifyEmailOTP = async (req, res) => {
       });
     }
 
-    const student = await Student.findOne({ email: email.toLowerCase() }).select('+emailOTP +otpExpiry');
-    
-    if (!student) {
+    const normalizedEmail = email.toLowerCase();
+    console.log('🔍 [VERIFY EMAIL OTP] Verifying OTP for:', normalizedEmail);
+
+    // Find OTP verification record
+    const otpRecord = await OTPVerification.findOne({
+      identifier: `student:${normalizedEmail}`,
+      type: 'email',
+    });
+
+    if (!otpRecord) {
+      console.log('❌ [VERIFY EMAIL OTP] OTP record not found for:', normalizedEmail);
       return res.status(404).json({ 
         success: false, 
-        message: 'Student not found' 
+        message: 'OTP not found. Please request a new OTP.' 
       });
     }
 
-    if (student.isEmailVerified) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Email is already verified' 
-      });
-    }
+    console.log('📝 [VERIFY EMAIL OTP] Stored OTP:', otpRecord.otp, 'Provided OTP:', otp);
+    console.log('⏰ [VERIFY EMAIL OTP] OTP Expiry:', otpRecord.expiresAt, 'Current Time:', new Date());
 
-    if (!student.emailOTP || !student.otpExpiry) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'No OTP found. Please request a new OTP.' 
-      });
-    }
-
-    if (student.otpExpiry < Date.now()) {
+    if (otpRecord.expiresAt < Date.now()) {
+      console.log('❌ [VERIFY EMAIL OTP] OTP expired');
+      await OTPVerification.deleteOne({ _id: otpRecord._id });
       return res.status(400).json({ 
         success: false, 
         message: 'OTP has expired. Please request a new OTP.' 
       });
     }
 
-    if (student.emailOTP !== otp) {
+    if (otpRecord.otp !== otp) {
+      otpRecord.attempts = (otpRecord.attempts || 0) + 1;
+      if (otpRecord.attempts >= 5) {
+        await OTPVerification.deleteOne({ _id: otpRecord._id });
+        console.log('❌ [VERIFY EMAIL OTP] Too many failed attempts');
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Too many incorrect attempts. Please request a new OTP.' 
+        });
+      }
+      await otpRecord.save();
+      console.log('❌ [VERIFY EMAIL OTP] OTP mismatch. Attempts:', otpRecord.attempts);
       return res.status(400).json({ 
         success: false, 
         message: 'Invalid OTP. Please check and try again.' 
       });
     }
 
-    student.isEmailVerified = true;
-    student.emailVerified = true;
-    student.emailOTP = undefined;
-    student.otpExpiry = undefined;
+    // OTP is valid! Now create the student account
+    console.log('✅ [VERIFY EMAIL OTP] OTP verified! Creating student account...');
+
+    // Check if data exists in OTP record
+    if (!otpRecord.data) {
+      console.error('❌ [VERIFY EMAIL OTP] OTP data missing - likely an old OTP record');
+      await OTPVerification.deleteOne({ _id: otpRecord._id });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'OTP data expired. Please request a new OTP to register.' 
+      });
+    }
+
+    const { firstName, lastName, password, phone, college, collegeAddress, branch, semester, regNumber, collegeIdCard, collegeIdCardHash, liveSelfie, selfieHash } = otpRecord.data;
+
+    // Create student with verified email
+    const student = new Student({
+      firstName,
+      lastName,
+      email: normalizedEmail,
+      password,
+      phone,
+      college,
+      collegeAddress: collegeAddress || null,
+      branch,
+      semester,
+      regNumber,
+      collegeIdCard: collegeIdCard || null,
+      collegeIdCardHash: collegeIdCardHash || null,
+      liveSelfie: liveSelfie || null,
+      selfieHash: selfieHash || null,
+      isEmailVerified: true,
+      emailVerified: true,
+    });
+
+    // Geocode college address if provided
+    if (collegeAddress) {
+      try {
+        const geoResult = await geocodeAddress(collegeAddress);
+        student.collegeLat = geoResult.latitude;
+        student.collegeLng = geoResult.longitude;
+        console.log(`✅ Geocoded college address: ${collegeAddress} -> (${geoResult.latitude}, ${geoResult.longitude})`);
+      } catch (geoError) {
+        console.warn('⚠️ Failed to geocode college address:', geoError.message);
+      }
+    }
 
     await student.save();
+    console.log('✅ [VERIFY EMAIL OTP] Student registered successfully:', normalizedEmail);
+
+    // Delete OTP record
+    await OTPVerification.deleteOne({ _id: otpRecord._id });
+
+    const token = generateToken(student._id);
 
     res.status(200).json({
       success: true,
-      message: 'Email verified successfully! You can now login.',
+      message: 'Email verified successfully! Your account has been created.',
+      token,
       user: {
         id: student._id,
+        firstName: student.firstName,
+        lastName: student.lastName,
         email: student.email,
-        isEmailVerified: student.isEmailVerified,
+        isEmailVerified: true,
       },
     });
   } catch (error) {
-    console.error(error);
+    console.error('❌ [VERIFY EMAIL OTP] Error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -396,8 +476,13 @@ exports.sendOrganizerOTP = async (req, res) => {
     }
 
     const normalizedEmail = email.toLowerCase();
-    if (normalizedEmail !== ROLE_EXCEPTION_EMAIL) {
-      return res.status(403).json({ success: false, message: 'Only authorized college admin email can register as organizer' });
+    
+    // Validate that email is organizational/educational, not personal
+    if (!isValidOrganizerEmail(normalizedEmail)) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Only organizational/educational emails are allowed (e.g., company.com, university.edu, college.co.in). Personal email providers (Gmail, Yahoo, etc.) are not permitted.' 
+      });
     }
 
     // Always fresh OTP - delete previous attempts
@@ -441,8 +526,13 @@ exports.verifyOrganizerOTP = async (req, res) => {
     }
 
     const normalizedEmail = email.toLowerCase();
-    if (normalizedEmail !== ROLE_EXCEPTION_EMAIL) {
-      return res.status(403).json({ success: false, message: 'Only authorized college admin email can register as organizer' });
+    
+    // Validate that email is organizational/educational
+    if (!isValidOrganizerEmail(normalizedEmail)) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Only organizational/educational emails are allowed. Personal email providers are not permitted.' 
+      });
     }
 
     const otpRecord = await OTPVerification.findOne({
@@ -491,9 +581,13 @@ exports.organizerSignup = async (req, res) => {
 
     const normalizedEmail = email.toLowerCase();
 
-    // Only the exception email can register as organizer
-    if (normalizedEmail !== ROLE_EXCEPTION_EMAIL) {
-      return res.status(403).json({ success: false, message: 'Only authorized college admin email can register as organizer' });
+    // Validate that email is organizational/educational
+    if (!isValidOrganizerEmail(normalizedEmail)) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Only organizational/educational emails are allowed (e.g., company.com, university.edu, college.co.in). Personal email providers (Gmail, Yahoo, etc.) are not permitted.',
+        isPublicEmail: true 
+      });
     }
 
     // Validate email format (still enforce institutional rules)
@@ -824,84 +918,6 @@ exports.resendOrganizerOTP = async (req, res) => {
 // ============ COMMON/LEGACY ENDPOINTS ============
 
 
-// Verify Email OTP
-exports.verifyEmailOTP = async (req, res) => {
-  try {
-    const { email, otp } = req.body;
-
-    // Validation
-    if (!email || !otp) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Please provide email and OTP' 
-      });
-    }
-
-    // Find user by email and include OTP fields
-    const user = await User.findOne({ email }).select('+emailOTP +otpExpiry');
-    
-    if (!user) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'User not found' 
-      });
-    }
-
-    // Check if user is already verified
-    if (user.isEmailVerified) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Email is already verified' 
-      });
-    }
-
-    // Check if OTP exists
-    if (!user.emailOTP || !user.otpExpiry) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'No OTP found. Please request a new OTP.' 
-      });
-    }
-
-    // Check if OTP has expired
-    if (user.otpExpiry < Date.now()) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'OTP has expired. Please request a new OTP.' 
-      });
-    }
-
-    // Check if OTP matches
-    if (user.emailOTP !== otp) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid OTP. Please check and try again.' 
-      });
-    }
-
-    // OTP is valid - verify the email
-    user.isEmailVerified = true;
-    user.emailVerified = true;
-    user.emailOTP = undefined;
-    user.otpExpiry = undefined;
-
-    await user.save();
-
-    res.status(200).json({
-      success: true,
-      message: 'Email verified successfully! You can now login.',
-      user: {
-        id: user._id,
-        email: user.email,
-        isEmailVerified: user.isEmailVerified,
-      },
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
 // Resend OTP
 exports.resendOTP = async (req, res) => {
   try {
@@ -1219,6 +1235,33 @@ exports.uploadProofDocument = async (req, res) => {
   } catch (error) {
     console.error('Proof upload error:', error);
     return res.status(500).json({ success: false, message: 'Failed to upload document' });
+  }
+};
+
+// Upload hackathon banner image
+exports.uploadHackathonImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+
+    // Real file saved to disk - return full URL
+    const imageUrl = `http://localhost:5000/uploads/${req.file.filename}`;
+    
+    console.log('🖼️ BACKEND: Hackathon image uploaded');
+    console.log(`   📁 File: ${req.file.filename}`);
+    console.log(`   🔗 Full URL: ${imageUrl}`);
+    console.log(`   💾 Size: ${(req.file.size / 1024).toFixed(2)} KB`);
+    console.log(`   ✅ Response being sent with imageUrl: ${imageUrl}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Hackathon image uploaded successfully',
+      imageUrl: imageUrl,
+    });
+  } catch (error) {
+    console.error('Hackathon image upload error:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 

@@ -29,10 +29,12 @@ export default function HackathonCard({
     }
   }
 
+  console.log(`🖼️ HackathonCard rendering: "${title}" with imageUrl:`, imageUrl);
+
   return (
     <div className="bg-white rounded-xl shadow-sm flex flex-col">
       <div className="h-40 w-full overflow-hidden rounded-t-xl">
-        <img src={imageUrl} alt={title} className="w-full h-full object-cover rounded-t-xl" />
+        <img src={imageUrl} alt={title} className="w-full h-full object-cover rounded-t-xl" onLoad={() => console.log(`✅ Image loaded: ${imageUrl}`)} onError={(e) => console.log(`❌ Image failed to load: ${imageUrl}`, e)} />
       </div>
 
       <div className="p-4 flex-1 flex flex-col">

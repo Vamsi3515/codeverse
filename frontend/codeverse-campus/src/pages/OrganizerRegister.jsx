@@ -2,7 +2,29 @@ import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 const API_URL = 'http://localhost:5000/api'
-const ORGANIZER_EMAIL = '22b61a0557@sitam.co.in'
+
+// Blocked personal email domains
+const BLOCKED_EMAIL_DOMAINS = [
+  'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'mail.com',
+  'mailinator.com', 'temp-mail.org', 'guerrillamail.com', 'yandex.com',
+  'protonmail.com', 'tutanota.com', 'aol.com', 'icloud.com', 'qq.com',
+  '163.com', '126.com',
+];
+
+const isValidOrganizerEmail = (email) => {
+  const domain = email.toLowerCase().split('@')[1];
+  if (!domain) return { valid: false, message: 'Invalid email format' };
+  
+  if (BLOCKED_EMAIL_DOMAINS.includes(domain)) {
+    return { valid: false, message: 'Personal email providers (Gmail, Yahoo, etc.) are not allowed. Please use your organizational email.' };
+  }
+  
+  if (!domain.includes('.')) {
+    return { valid: false, message: 'Please use a valid organizational/educational email domain' };
+  }
+  
+  return { valid: true, message: '' };
+};
 
 export default function OrganizerRegister() {
   const [activeTab, setActiveTab] = useState('register')
@@ -94,8 +116,9 @@ export default function OrganizerRegister() {
       return
     }
 
-    if (collegeEmail.toLowerCase() !== ORGANIZER_EMAIL) {
-      setRegisterErrors((prev) => ({ ...prev, collegeEmail: 'Only authorized college admin email can register as organizer' }))
+    const emailValidation = isValidOrganizerEmail(collegeEmail)
+    if (!emailValidation.valid) {
+      setRegisterErrors((prev) => ({ ...prev, collegeEmail: emailValidation.message }))
       return
     }
 
@@ -207,8 +230,11 @@ export default function OrganizerRegister() {
     if (!college || !college.trim()) errs.college = 'This field is required'
     if (!collegeEmail || !collegeEmail.trim()) errs.collegeEmail = 'College email is required'
     else if (!collegeEmail.includes('@')) errs.collegeEmail = 'Please enter a valid email address'
-    if (collegeEmail && collegeEmail.toLowerCase() !== ORGANIZER_EMAIL) {
-      errs.collegeEmail = 'Only authorized college admin email can register as organizer'
+    else {
+      const emailValidation = isValidOrganizerEmail(collegeEmail)
+      if (!emailValidation.valid) {
+        errs.collegeEmail = emailValidation.message
+      }
     }
     if (!role) errs.role = 'This field is required'
     if (!password) errs.password = 'This field is required'

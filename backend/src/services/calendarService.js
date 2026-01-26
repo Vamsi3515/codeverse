@@ -197,6 +197,15 @@ const addEventToCalendar = async (eventDetails, accessToken, refreshToken) => {
  * @returns {string} Authorization URL
  */
 const getAuthUrl = (state) => {
+  // Verify environment variables are loaded
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || !process.env.GOOGLE_REDIRECT_URI) {
+    console.error('❌ [CALENDAR] Missing Google OAuth environment variables:');
+    console.error('   GOOGLE_CLIENT_ID:', !!process.env.GOOGLE_CLIENT_ID);
+    console.error('   GOOGLE_CLIENT_SECRET:', !!process.env.GOOGLE_CLIENT_SECRET);
+    console.error('   GOOGLE_REDIRECT_URI:', !!process.env.GOOGLE_REDIRECT_URI);
+    throw new Error('Google Calendar not configured. Missing credentials in environment variables.');
+  }
+
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
@@ -214,6 +223,9 @@ const getAuthUrl = (state) => {
     prompt: 'consent',
     state: state || undefined
   });
+
+  console.log('✅ [CALENDAR] OAuth URL generated successfully');
+  console.log('   Redirect URI:', process.env.GOOGLE_REDIRECT_URI);
 
   return authUrl;
 };

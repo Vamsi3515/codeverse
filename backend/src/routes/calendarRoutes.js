@@ -112,16 +112,18 @@ router.post('/add-event', protect, async (req, res) => {
  */
 router.get('/auth-url', protect, (req, res) => {
   try {
+    console.log('📅 [CALENDAR AUTH] GET /auth-url called for user:', req.user.id);
     const authUrl = calendarService.getAuthUrl(req.user.id);
+    console.log('✅ [CALENDAR AUTH] Auth URL generated, sending to frontend');
     res.json({
       success: true,
       authUrl
     });
   } catch (error) {
-    console.error('❌ [CALENDAR AUTH] Error:', error);
+    console.error('❌ [CALENDAR AUTH] Error:', error.message);
     res.status(500).json({
       success: false,
-      message: 'Failed to generate authorization URL'
+      message: error.message || 'Failed to generate authorization URL'
     });
   }
 });

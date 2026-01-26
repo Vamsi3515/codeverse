@@ -31,6 +31,10 @@ export default function CreateHackathon(){
   // Basic details
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [hackathonImage, setHackathonImage] = useState(null)
+  const [hackathonImageUrl, setHackathonImageUrl] = useState('')
+  const [hackathonImagePreview, setHackathonImagePreview] = useState('')
+  const [uploadingImage, setUploadingImage] = useState(false)
   const [mode, setMode] = useState('online')
   const [offlineLocation, setOfflineLocation] = useState(null)
   const [participationType, setParticipationType] = useState('team')
@@ -65,6 +69,8 @@ export default function CreateHackathon(){
   // Schedule
   const [startDateTime, setStartDateTime] = useState('')
   const [endDateTime, setEndDateTime] = useState('')
+  const [competitionDurationHours, setCompetitionDurationHours] = useState('')
+  const [competitionDurationMinutes, setCompetitionDurationMinutes] = useState('')
 
   // UI State
   const [message, setMessage] = useState('')
@@ -72,6 +78,66 @@ export default function CreateHackathon(){
   const [error, setError] = useState('')
   const [draftHackathonId, setDraftHackathonId] = useState(null)
   const [showProblemForm, setShowProblemForm] = useState(false)
+
+  const handleHackathonImageChange = async (e) => {
+    const file = e.target.files && e.target.files[0]
+    if (!file) return
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+    if (!allowedTypes.includes(file.type)) {
+      alert('Only .jpg, .jpeg, .png, and .webp files are allowed')
+      return
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size must be less than 5MB')
+      return
+    }
+
+    setHackathonImage(file)
+    
+    // Create preview
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setHackathonImagePreview(reader.result)
+    }
+    reader.readAsDataURL(file)
+
+    // Upload image
+    await uploadHackathonImage(file)
+  }
+
+  const uploadHackathonImage = async (file) => {
+    setUploadingImage(true)
+    try {
+      const formData = new FormData()
+      formData.append('hackathonImage', file)
+
+      const response = await fetch('http://localhost:5000/api/auth/upload-hackathon-image', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setHackathonImageUrl(data.imageUrl)
+        console.log('✅ Hackathon image uploaded:', data.imageUrl)
+      } else {
+        alert(data.message || 'Failed to upload hackathon image')
+        setHackathonImage(null)
+        setHackathonImagePreview('')
+      }
+    } catch (error) {
+      alert('Failed to upload hackathon image. Please try again.')
+      setHackathonImage(null)
+      setHackathonImagePreview('')
+    } finally {
+      setUploadingImage(false)
+    }
+  }
 
   const handlePublish = async (e) => {
     e.preventDefault()
@@ -98,6 +164,7 @@ export default function CreateHackathon(){
         
         // Update the draft hackathon with complete details
         // NOTE: Don't send problemStatements - they're already saved in DB!
+        const competitionMinutes = (parseInt(competitionDurationHours || 0) * 60) + parseInt(competitionDurationMinutes || 0)
         const updateData = {
           title: title,
           description: description,
@@ -108,6 +175,7 @@ export default function CreateHackathon(){
           registrationStartDate: new Date().toISOString(),
           registrationEndDate: startDateTime,
           duration: calculateDuration(startDateTime, endDateTime),
+          ...(competitionMinutes > 0 ? { competitionDuration: competitionMinutes } : {}),
           location: mode === 'offline' ? offlineLocation : null,
           ...(mode === 'offline' || mode === 'hybrid' ? { maxParticipants: 100 } : {}),
           registrationFee: parseInt(registrationFee) || 0,
@@ -127,7 +195,7 @@ export default function CreateHackathon(){
             webcamRequired: false,
           },
           tags: [mode, participationType],
-          bannerImage: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=1200&q=80',
+          bannerImage: hackathonImageUrl || 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=1200&q=80',
           // DON'T send problemStatements - they're already in the database!
         }
 
@@ -177,6 +245,7 @@ export default function CreateHackathon(){
       console.log('📝 Creating new hackathon (no draft exists)')
 
       // Prepare hackathon data matching backend schema
+      const competitionMinutesNew = (parseInt(competitionDurationHours || 0) * 60) + parseInt(competitionDurationMinutes || 0)
       const hackathonData = {
         title: title,
         description: description,
@@ -187,6 +256,7 @@ export default function CreateHackathon(){
         registrationStartDate: new Date().toISOString(),
         registrationEndDate: startDateTime,
         duration: calculateDuration(startDateTime, endDateTime),
+        ...(competitionMinutesNew > 0 ? { competitionDuration: competitionMinutesNew } : {}),
         location: mode === 'offline' ? offlineLocation : null,
         // Only include maxParticipants for OFFLINE/HYBRID hackathons
         // For ONLINE hackathons, maxParticipants is not needed
@@ -209,7 +279,7 @@ export default function CreateHackathon(){
           webcamRequired: false,
         },
         tags: [mode, participationType],
-        bannerImage: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=1200&q=80',
+        bannerImage: hackathonImageUrl || 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=1200&q=80',
         publish: true, // Auto-publish
       }
 
@@ -504,6 +574,30 @@ export default function CreateHackathon(){
                 />
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Hackathon Image (Optional)
+                </label>
+                <input 
+                  type="file" 
+                  accept=".jpg,.jpeg,.png,.webp"
+                  onChange={handleHackathonImageChange}
+                  disabled={uploadingImage}
+                  className="w-full rounded-lg border border-gray-300 h-12 px-4 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+                {uploadingImage && <p className="text-xs text-blue-600 mt-2">Uploading image...</p>}
+                {hackathonImagePreview && (
+                  <div className="mt-3 w-full border border-gray-300 rounded-lg overflow-hidden bg-white">
+                    <img 
+                      src={hackathonImagePreview} 
+                      alt="Hackathon Banner Preview" 
+                      className="w-full h-40 object-cover"
+                    />
+                  </div>
+                )}
+                {hackathonImageUrl && <p className="text-xs text-green-600 mt-2">✅ Image uploaded successfully</p>}
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -516,7 +610,6 @@ export default function CreateHackathon(){
                   >
                     <option value="online">Online</option>
                     <option value="offline">Offline</option>
-                    <option value="hybrid">Hybrid</option>
                   </select>
                 </div>
 
@@ -577,37 +670,36 @@ export default function CreateHackathon(){
 
               {/* Coding Problem Statements Section - Only for ONLINE Mode */}
               {mode === 'online' && (
-                <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-300 rounded-lg p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-purple-900">
-                      🧠 Coding Problem Statements <span className="text-red-500">*</span>
-                    </h3>
-                    <span className={`text-sm font-semibold ${problemStatements.length === 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      Problems Added: {problemStatements.length}
+                <div className="border border-gray-200 rounded-lg p-6 bg-white">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        Coding Problem Statements <span className="text-red-500">*</span>
+                      </h3>
+                      <p className="text-sm text-gray-500 mt-1">Design coding problems for students to solve</p>
+                    </div>
+                    <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${problemStatements.length === 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                      {problemStatements.length} added
                     </span>
                   </div>
-                  
-                  <p className="text-sm text-purple-700 mb-4">
-                    Design coding problems for students to solve in C/C++/Java/Python. Include test cases, time limits, and constraints.
-                  </p>
 
                   {/* Add New Problem Button */}
                   {!showProblemForm && (
                     <button
                       type="button"
                       onClick={() => setShowProblemForm(true)}
-                      className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-4 px-6 rounded-lg font-bold transition-all text-lg shadow-lg"
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-medium transition-colors"
                     >
-                      ➕ Add New Coding Problem
+                      + Add New Coding Problem
                     </button>
                   )}
 
                   {/* Add Problem Form */}
                   {showProblemForm && (
-                    <div className="bg-white rounded-lg p-5 mb-4 space-y-4 border-2 border-purple-400 shadow-xl">
+                    <div className="bg-gray-50 rounded-lg p-5 mb-4 space-y-4 border border-gray-200">
                     {/* 1. Problem Details */}
                     <div className="border-b border-gray-200 pb-4">
-                      <h4 className="font-semibold text-gray-900 mb-3">📝 Problem Details</h4>
+                      <h4 className="font-semibold text-gray-900 mb-3">Problem Details</h4>
                       <div className="space-y-3">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -615,7 +707,7 @@ export default function CreateHackathon(){
                           </label>
                           <input
                             type="text"
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             value={currentProblem.title}
                             onChange={e => setCurrentProblem({...currentProblem, title: e.target.value})}
                             placeholder="e.g., Two Sum Problem"
@@ -627,7 +719,7 @@ export default function CreateHackathon(){
                             Problem Description <span className="text-red-500">*</span>
                           </label>
                           <textarea
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             value={currentProblem.description}
                             onChange={e => setCurrentProblem({...currentProblem, description: e.target.value})}
                             placeholder="Describe what the problem is asking students to solve..."
@@ -641,7 +733,7 @@ export default function CreateHackathon(){
                               Input Format <span className="text-red-500">*</span>
                             </label>
                             <textarea
-                              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                               value={currentProblem.inputFormat}
                               onChange={e => setCurrentProblem({...currentProblem, inputFormat: e.target.value})}
                               placeholder="First line: integer N&#10;Second line: N space-separated integers"
@@ -933,94 +1025,67 @@ export default function CreateHackathon(){
                   </div>
                   )}
 
-                  {/* Problem Statements List - Admin Dashboard */}
+                  {/* Problem Statements List */}
                   {problemStatements.length > 0 && (
                     <div className="space-y-3 mt-6">
-                      <div className="flex items-center justify-between bg-gradient-to-r from-green-50 to-blue-50 p-3 rounded-lg border-2 border-green-300">
-                        <h4 className="text-lg font-bold text-green-900">
-                          📊 Admin Dashboard - Problems Saved in Database
+                      <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+                        <h4 className="text-sm font-semibold text-gray-900">
+                          Added Problems
                         </h4>
-                        <span className="bg-green-600 text-white px-4 py-1.5 rounded-full font-bold">
-                          {problemStatements.length} Problem{problemStatements.length !== 1 ? 's' : ''}
+                        <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-medium">
+                          {problemStatements.length}
                         </span>
                       </div>
 
                       {problemStatements.map((problem, index) => (
-                        <div key={index} className="bg-white border-2 border-green-400 rounded-lg p-5 shadow-md">
+                        <div key={index} className="bg-white border border-gray-200 rounded-lg p-4">
                           <div className="flex justify-between items-start mb-3">
                             <div className="flex-1">
-                              <div className="flex items-center space-x-2 mb-2">
-                                <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold">
-                                  ✅ SAVED IN DB
-                                </span>
-                                <span className="text-gray-500 text-xs">
-                                  {problem.createdAt ? new Date(problem.createdAt).toLocaleString() : 'Just now'}
-                                </span>
-                              </div>
-                              <h5 className="font-bold text-gray-900 text-lg">
-                                Problem {index + 1}: {problem.title}
+                              <h5 className="font-semibold text-gray-900">
+                                {problem.title}
                               </h5>
-                              <p className="text-sm text-gray-600 mt-1">{problem.description.substring(0, 100)}...</p>
+                              <p className="text-sm text-gray-600 mt-1">{problem.description.substring(0, 80)}...</p>
                             </div>
                             <button
                               type="button"
                               onClick={() => removeProblemStatement(index)}
-                              className="text-red-600 hover:text-red-800 text-sm font-medium ml-4 bg-red-50 px-4 py-2 rounded-lg border border-red-300 hover:bg-red-100 transition-colors"
+                              className="text-red-600 hover:text-red-700 text-xs font-medium ml-4 px-2 py-1 hover:bg-red-50 rounded transition-colors"
                             >
-                              🗑️ Delete from DB
+                              Delete
                             </button>
                           </div>
                           
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm mb-3">
-                            <div className="bg-green-50 rounded p-3 border border-green-200">
-                              <span className="font-semibold text-gray-700 block mb-1">Test Cases:</span>
-                              <span className="text-green-700">✅ {problem.sampleTestCases?.length || 0} Sample</span>
-                              <span className="ml-2 text-red-700">🔒 {problem.hiddenTestCases?.length || 0} Hidden</span>
+                          <div className="grid grid-cols-3 gap-3 text-xs">
+                            <div>
+                              <span className="text-gray-500">Test Cases:</span>
+                              <p className="text-gray-900 font-medium">{problem.sampleTestCases?.length || 0} / {problem.hiddenTestCases?.length || 0}</p>
                             </div>
-                            <div className="bg-blue-50 rounded p-3 border border-blue-200">
-                              <span className="font-semibold text-gray-700 block mb-1">Execution Limits:</span>
-                              <span className="text-blue-700">⏱️ {problem.timeLimit}s</span>
-                              <span className="ml-2 text-blue-700">💾 {problem.memoryLimit}MB</span>
+                            <div>
+                              <span className="text-gray-500">Limits:</span>
+                              <p className="text-gray-900 font-medium">{problem.timeLimit}s / {problem.memoryLimit}MB</p>
                             </div>
-                            <div className="bg-purple-50 rounded p-3 border border-purple-200">
-                              <span className="font-semibold text-gray-700 block mb-1">Languages:</span>
-                              <span className="text-purple-700">{problem.allowedLanguages?.join(', ')}</span>
+                            <div>
+                              <span className="text-gray-500">Languages:</span>
+                              <p className="text-gray-900 font-medium">{problem.allowedLanguages?.join(', ')}</p>
                             </div>
-                          </div>
-
-                          <div className="flex items-center space-x-2 text-xs text-gray-600">
-                            <span className="bg-gray-100 px-2 py-1 rounded">ID: {problem._id || `temp-${index}`}</span>
-                            <span className="bg-blue-100 px-2 py-1 rounded">Hackathon: {draftHackathonId}</span>
                           </div>
                         </div>
                       ))}
 
-                      <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4 text-center">
-                        <p className="text-sm text-green-800 font-semibold mb-2">
-                          ✅ All problems are saved in the database and ready for students!
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => setShowProblemForm(true)}
-                          className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
-                        >
-                          ➕ Add Another Problem
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowProblemForm(true)}
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-medium text-sm transition-colors"
+                      >
+                        + Add Another Problem
+                      </button>
                     </div>
                   )}
 
                   {problemStatements.length === 0 && !showProblemForm && (
-                    <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-6 text-center">
-                      <div className="text-4xl mb-3">⚠️</div>
-                      <p className="text-base text-yellow-800 font-bold mb-2">
-                        No Coding Problems Added Yet
-                      </p>
-                      <p className="text-sm text-yellow-700 mb-4">
-                        Click the "Add New Coding Problem" button above to start adding problems to the database
-                      </p>
-                      <p className="text-xs text-yellow-600">
-                        You must add at least one problem before publishing the hackathon
+                    <div className="text-center py-8 px-4 bg-gray-50 rounded-lg border border-gray-200">
+                      <p className="text-sm text-gray-600">
+                        No problems added yet. Add at least one coding problem to continue.
                       </p>
                     </div>
                   )}
@@ -1056,12 +1121,22 @@ export default function CreateHackathon(){
                   type="datetime-local"
                   className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-sky-500 focus:border-transparent"
                   value={startDateTime}
+                  min={new Date().toISOString().slice(0, 16)}
                   onChange={e => {
                     console.log('📅 Start DateTime Changed:', e.target.value)
                     setStartDateTime(e.target.value)
+                    // If end date is set and is before start + 24 hours, clear it
+                    if (endDateTime) {
+                      const startDate = new Date(e.target.value);
+                      const endDate = new Date(endDateTime);
+                      const minEndDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000); // 24 hours later
+                      if (endDate < minEndDate) {
+                        setEndDateTime('');
+                      }
+                    }
                   }}
                 />
-                {startDateTime && <p className="text-xs text-green-600 mt-1">✅ Saved: {startDateTime}</p>}
+                {startDateTime && <p className="text-xs text-green-600 mt-1">✅ {new Date(startDateTime).toLocaleString()}</p>}
               </div>
 
               <div>
@@ -1072,13 +1147,76 @@ export default function CreateHackathon(){
                   type="datetime-local"
                   className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-sky-500 focus:border-transparent"
                   value={endDateTime}
+                  disabled={!startDateTime}
+                  min={startDateTime ? new Date(new Date(startDateTime).getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16)}
                   onChange={e => {
                     console.log('📅 End DateTime Changed:', e.target.value)
-                    setEndDateTime(e.target.value)
+                    const endDate = new Date(e.target.value);
+                    const startDate = new Date(startDateTime);
+                    const minEndDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
+                    
+                    // Only set if end date is at least 24 hours after start date
+                    if (endDate >= minEndDate) {
+                      setEndDateTime(e.target.value)
+                    }
                   }}
                 />
-                {endDateTime && <p className="text-xs text-green-600 mt-1">✅ Saved: {endDateTime}</p>}
+                {endDateTime && <p className="text-xs text-green-600 mt-1">✅ {new Date(endDateTime).toLocaleString()}</p>}
+                {startDateTime && !endDateTime && <p className="text-xs text-gray-500 mt-1">Must be at least 24 hours after start date</p>}
+                {!startDateTime && <p className="text-xs text-gray-400 mt-1">Select start date first</p>}
               </div>
+            </div>
+
+            {/* Competition Duration (Optional) */}
+            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h3 className="text-sm font-semibold text-gray-800 mb-3">⏱️ Completion Time (Optional)</h3>
+              <p className="text-xs text-gray-600 mb-4">
+                <strong>Duration:</strong> How long the hackathon is open. <strong>Completion Time:</strong> How long users have to submit after joining.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Completion Time - Hours
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      max="24"
+                      className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                      value={competitionDurationHours}
+                      onChange={e => setCompetitionDurationHours(e.target.value)}
+                      placeholder="0"
+                    />
+                    <span className="text-sm text-gray-700 font-medium py-2">hrs</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Completion Time - Minutes
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      max="59"
+                      className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                      value={competitionDurationMinutes}
+                      onChange={e => setCompetitionDurationMinutes(e.target.value)}
+                      placeholder="0"
+                    />
+                    <span className="text-sm text-gray-700 font-medium py-2">min</span>
+                  </div>
+                </div>
+              </div>
+
+              {(competitionDurationHours || competitionDurationMinutes) && (
+                <div className="mt-3 p-3 bg-white border border-blue-200 rounded text-sm">
+                  <strong>⏰ Total time after joining:</strong> {parseInt(competitionDurationHours || 0)} hours and {parseInt(competitionDurationMinutes || 0)} minutes ({parseInt(competitionDurationHours || 0) * 60 + parseInt(competitionDurationMinutes || 0)} minutes)
+                </div>
+              )}
             </div>
           </div>
 

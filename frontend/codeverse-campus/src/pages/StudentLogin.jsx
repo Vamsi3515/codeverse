@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { GraduationCap, Eye, EyeOff, Mail, Lock, ArrowRight, AlertCircle } from 'lucide-react'
 
 export default function StudentLogin(){
   const navigate = useNavigate()
@@ -10,43 +11,6 @@ export default function StudentLogin(){
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-
-  // Inline eye icons to avoid extra dependencies
-  const EyeIcon = ({ off = false }) => (
-    <svg
-      width="22"
-      height="22"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-    >
-      <path
-        d="M2.5 12S6.5 6 12 6s9.5 6 9.5 6-4 6-9.5 6S2.5 12 2.5 12Z"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-      <circle
-        cx="12"
-        cy="12"
-        r="3"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        fill="none"
-      />
-      {off && (
-        <path
-          d="M4 4l16 16"
-          stroke="currentColor"
-          strokeWidth="1.6"
-          strokeLinecap="round"
-        />
-      )}
-    </svg>
-  )
 
   const fetchStudentProfile = async (token, userId) => {
     try {
@@ -86,9 +50,7 @@ export default function StudentLogin(){
         body: JSON.stringify({ email: email.toLowerCase(), password })
       })
       
-      // Check if response is ok (status 200-299)
       if (!response.ok) {
-        // Server responded with error status
         const data = await response.json()
         setError(data.message || 'Login failed. Please check your credentials.')
         setLoading(false)
@@ -100,36 +62,22 @@ export default function StudentLogin(){
       if (data.success) {
         console.log('🔍 [LOGIN DEBUG] User data received:', data.user);
         console.log('📍 [LOGIN DEBUG] College:', data.user.college);
-        console.log('📍 [LOGIN DEBUG] College Address:', data.user.collegeAddress);
         
-        // Store authentication info using context
         const fullName = data.user.firstName + ' ' + data.user.lastName
         login(data.token, 'student', fullName, data.user.id)
         
-        // Store email and registration number for team registration
         localStorage.setItem('userEmail', data.user.email)
         localStorage.setItem('userRegNumber', data.user.regNumber || '')
-        
-        // Store additional college info
         localStorage.setItem('userCollege', data.user.college || '')
         localStorage.setItem('userCollegeAddress', data.user.collegeAddress || data.user.college || '')
         
-        console.log('📍 [LOGIN DEBUG] Stored userCollege:', localStorage.getItem('userCollege'));
-        console.log('📍 [LOGIN DEBUG] Stored userCollegeAddress:', localStorage.getItem('userCollegeAddress'));
-        console.log('✅ [LOGIN DEBUG] Stored userEmail:', localStorage.getItem('userEmail'));
-        console.log('✅ [LOGIN DEBUG] Stored userRegNumber:', localStorage.getItem('userRegNumber'));
-        
-        // Fetch and store student profile with selfie
         fetchStudentProfile(data.token, data.user.id)
-        
-        // Navigate to dashboard
         navigate('/dashboard/student')
       } else {
         setError(data.message || 'Login failed. Please check your credentials.')
         setLoading(false)
       }
     } catch (err) {
-      // Only show "unable to connect" for actual network errors
       console.error('Login error:', err)
       setError('Unable to connect to server. Please check if the server is running.')
       setLoading(false)
@@ -137,49 +85,128 @@ export default function StudentLogin(){
   }
 
   return (
-    <div style={{maxWidth:720, margin:'28px auto', background:'var(--card-bg)', borderRadius:12, padding:24, boxShadow:'var(--shadow)'}}>
-      <h2 style={{margin:0}}>Student Login</h2>
-      <p style={{color:'var(--muted)',marginTop:8}}>Sign in to access your student dashboard.</p>
-
-      {error && <div style={{marginTop:12, padding:12, background:'#fee', borderRadius:8, color:'#c00', fontSize:14}}>{error}</div>}
-
-        <form onSubmit={handleSubmit} style={{display:'flex',flexDirection:'column',gap:12,marginTop:18}}>
-        <input placeholder="Email" type="email" value={email} onChange={(e)=>setEmail(e.target.value)} required style={{padding:12,borderRadius:8,border:'1px solid rgba(15,23,42,0.06)', textAlign:'left'}} />
-        <div style={{position:'relative', display:'flex', alignItems:'center'}}>
-          <input
-            placeholder="Password"
-            type={showPassword ? 'text' : 'password'}
-            value={password}
-            onChange={(e)=>setPassword(e.target.value)}
-            required
-            style={{padding:12, paddingRight:44, borderRadius:8, border:'1px solid rgba(15,23,42,0.06)', textAlign:'left', width:'100%'}}
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            aria-label={showPassword ? 'Hide password' : 'Show password'}
-            style={{
-              position:'absolute',
-              right:12,
-              top:'50%',
-              transform:'translateY(-50%)',
-              background:'none',
-              border:'none',
-              cursor:'pointer',
-              padding:6,
-              display:'flex',
-              alignItems:'center',
-              justifyContent:'center',
-              color:'#5b21b6'
-            }}
-          >
-            <EyeIcon off={!showPassword} />
-          </button>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
+      <div className="w-full max-w-md">
+        {/* Header Card */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl mb-6 shadow-lg">
+            <GraduationCap className="w-8 h-8 text-white" />
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
+            Student Login
+          </h1>
+          <p className="text-gray-600">Sign in to your account and explore amazing hackathons</p>
         </div>
-        <div style={{display:'flex',gap:10,alignItems:'center',justifyContent:'center'}}>
-          <button className="btn btn-primary" style={{padding:'10px 16px'}} type="submit" disabled={loading}>{loading ? 'Logging in...' : 'Login'}</button>
+
+        {/* Login Form Card */}
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8 sm:p-10">
+          
+          {/* Error Message */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg flex gap-3">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <p className="text-red-700 text-sm">{error}</p>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Email Input */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
+                <input
+                  placeholder="you@example.com"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition"
+                />
+              </div>
+            </div>
+
+            {/* Password Input */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
+                <input
+                  placeholder="Enter your password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 transition"
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Remember & Forgot */}
+            <div className="flex items-center justify-between pt-2">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" className="w-4 h-4 rounded border-gray-300 cursor-pointer" />
+                <span className="text-gray-600 cursor-pointer">Remember me</span>
+              </label>
+              <Link to="/forgot-password" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                Forgot password?
+              </Link>
+            </div>
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg disabled:opacity-75 flex items-center justify-center gap-2"
+            >
+              {loading ? 'Signing in...' : (
+                <>
+                  Sign In
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Divider */}
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">Or continue as</span>
+            </div>
+          </div>
+
+          {/* Alternative Login */}
+          <Link to="/login/organizer" className="w-full py-2.5 border-2 border-gray-300 text-gray-700 font-semibold rounded-lg hover:border-gray-400 hover:bg-gray-50 transition text-center">
+            Sign In as Organizer
+          </Link>
         </div>
-      </form>
+
+        {/* Footer */}
+        <p className="text-center text-gray-600 mt-6">
+          Don't have an account?{' '}
+          <Link to="/signup/student" className="text-blue-600 font-semibold hover:text-blue-700 transition">
+            Sign up now
+          </Link>
+        </p>
+      </div>
     </div>
   )
 }

@@ -248,7 +248,9 @@ export default function RegistrationSuccessModal({
   }
 
   const handleSkipCalendar = () => {
+    // Close both the calendar prompt AND the entire modal
     setShowCalendarPrompt(false)
+    onClose()
   }
 
   const handleNextStep = () => {

@@ -28,6 +28,10 @@ const otpVerificationSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  data: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

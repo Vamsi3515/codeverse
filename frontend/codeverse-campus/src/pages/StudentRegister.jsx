@@ -12,8 +12,9 @@ export default function StudentRegister(){
 
   const [emailOtp, setEmailOtp] = useState('')
   const [emailOtpSent, setEmailOtpSent] = useState(false)
-  const [emailVerified, setEmailVerified] = useState(false)
   const [emailOtpLoading, setEmailOtpLoading] = useState(false)
+  const [otpExpired, setOtpExpired] = useState(false)
+  const [otpTimeLeft, setOtpTimeLeft] = useState(0)
   
   const [phoneOtp, setPhoneOtp] = useState('')
   const [phoneOtpSent, setPhoneOtpSent] = useState(false)
@@ -40,13 +41,30 @@ export default function StudentRegister(){
   const [cameraError, setCameraError] = useState('')
 
   const [formErrors, setFormErrors] = useState({})
-  const [registering, setRegistering] = useState(false)
 
   useEffect(()=>{
     return ()=>{
       if(streamRef.current) streamRef.current.getTracks().forEach(t=>t.stop())
     }
   },[])
+
+  // OTP expiry timer
+  useEffect(() => {
+    if (!emailOtpSent || otpExpired) return
+    
+    const timer = setInterval(() => {
+      setOtpTimeLeft((prev) => {
+        if (prev <= 1) {
+          setOtpExpired(true)
+          clearInterval(timer)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [emailOtpSent, otpExpired])
 
   // Send Email OTP
   const handleSendEmailOtp = async ()=>{
@@ -55,7 +73,7 @@ export default function StudentRegister(){
       return
     }
     
-    // Validate other required fields before registration
+    // Validate other required fields before sending OTP
     if(!fullName.trim() || !college.trim() || !password || !phone.trim()) {
       alert('⚠️ Please fill in all required fields (Name, College, Email, Phone, Password) before sending OTP')
       return
@@ -73,50 +91,41 @@ export default function StudentRegister(){
     
     setEmailOtpLoading(true)
     try {
-      // If user not registered yet, register first to send OTP
-      if (!emailOtpSent) {
-        const [firstName, ...lastNameParts] = fullName.trim().split(' ')
-        const lastName = lastNameParts.join(' ') || 'Student'
-        
-        const response = await fetch('http://localhost:5000/api/auth/student/signup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            firstName,
-            lastName,
-            email: collegeEmail.toLowerCase(),
-            password,
-            phone,
-            college,
-            collegeAddress: collegeAddress || college,
-            regNumber: rollNumber,
-            collegeIdCard: collegeIdCardUrl,
-            liveSelfie: liveSelfieUrl
-          })
+      const [firstName, ...lastNameParts] = fullName.trim().split(' ')
+      const lastName = lastNameParts.join(' ') || 'Student'
+      
+      console.log('📤 Sending OTP to:', collegeEmail.toLowerCase());
+      const response = await fetch('http://localhost:5000/api/auth/student/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          email: collegeEmail.toLowerCase(),
+          password,
+          phone,
+          college,
+          collegeAddress: collegeAddress || college,
+          regNumber: rollNumber,
+          collegeIdCard: collegeIdCardUrl,
+          liveSelfie: liveSelfieUrl
         })
-        const data = await response.json()
-        if(data.success) {
-          setEmailOtpSent(true)
-          alert('✅ Registration successful! An OTP has been sent to your email address. Please check your inbox and enter the OTP to verify.')
-        } else {
-          alert(data.message || 'Registration failed. Please try a different email.')
-        }
+      })
+      const data = await response.json()
+      console.log('📨 Signup response:', data);
+      
+      if(data.success) {
+        setEmailOtpSent(true)
+        setOtpExpired(false)
+        setEmailOtp('')
+        setOtpTimeLeft(60) // 1 minute
+        alert('✅ OTP sent to your email! Please check your inbox and enter the OTP.')
       } else {
-        // User already registered, resend OTP
-        const response = await fetch('http://localhost:5000/api/auth/student/resend-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: collegeEmail.toLowerCase() })
-        })
-        const data = await response.json()
-        if(data.success) {
-          alert('✅ OTP has been resent to your email. Please check your inbox.')
-        } else {
-          alert(data.message || 'Failed to resend OTP')
-        }
+        alert('❌ ' + (data.message || 'Failed to send OTP. Please try again.'))
       }
     } catch(err) {
-      alert('Unable to send OTP. Check your connection.')
+      console.error('Error:', err);
+      alert('❌ Unable to send OTP. Check your connection.')
     } finally {
       setEmailOtpLoading(false)
     }
@@ -129,20 +138,33 @@ export default function StudentRegister(){
     }
     setEmailOtpLoading(true)
     try {
+      console.log('🔍 Verifying OTP for email:', collegeEmail.toLowerCase());
       const response = await fetch('http://localhost:5000/api/auth/student/verify-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: collegeEmail.toLowerCase(), otp: emailOtp })
       })
       const data = await response.json()
+      console.log('📩 Verification response:', data);
+      
       if(data.success) {
-        setEmailVerified(true)
-        alert('✅ Email verified successfully!')
+        alert('✅ Email verified successfully! Your account has been created.')
+        // Auto-login and redirect
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('userRole', 'student');
+        localStorage.setItem('userName', data.user.firstName + ' ' + data.user.lastName);
+        localStorage.setItem('userId', data.user.id);
+        // Redirect to dashboard
+        setTimeout(() => {
+          window.location.href = '/dashboard/student';
+        }, 1500);
       } else {
-        alert(data.message || 'Invalid OTP')
+        console.error('❌ Verification failed:', data.message);
+        alert('❌ ' + (data.message || 'Email verification failed'))
       }
     } catch(err) {
-      alert('Verification failed. Please try again.')
+      console.error('❌ Verification error:', err);
+      alert('❌ Verification failed. Please try again. Error: ' + err.message)
     } finally {
       setEmailOtpLoading(false)
     }
@@ -297,47 +319,7 @@ export default function StudentRegister(){
   const handleDragOver = (e)=> e.preventDefault()
   const handleDrop = (e)=>{ e.preventDefault(); setIdFileError(''); const f = e.dataTransfer.files && e.dataTransfer.files[0]; if(!f) return; const ok=['image/jpeg','image/png','application/pdf']; if(!ok.includes(f.type)) return setIdFileError('Only JPG, PNG or PDF allowed'); if(f.size>5*1024*1024) return setIdFileError('File must be <= 5MB'); setIdFile(f) }
 
-  const handleRegister = async ()=>{
-    // Validation
-    const errs = {}
-    if(!fullName.trim()) errs.fullName='Required'
-    if(!college.trim()) errs.college='Required'
-    if(!collegeEmail.trim()) errs.collegeEmail='Email is required'
-    if(!phone.trim()) errs.phone='Required'
-    if(!password) errs.password='Required'
-    if(password!==confirmPassword) errs.confirmPassword='Passwords do not match'
-    
-    if(!collegeIdCardUrl) {
-      errs.collegeIdCard='College ID Card is required'
-      alert('⚠️ Please upload your College ID Card')
-    }
-    if(!liveSelfieUrl) {
-      alert('⚠️ Please capture a live selfie')
-      return
-    }
-    
-    setFormErrors(errs)
-    if(Object.keys(errs).length>0){
-      return
-    }
 
-    // Check if email is verified
-    if (!emailVerified) {
-      alert('⚠️ Please verify your email first by clicking "Send OTP" and entering the code.')
-      return
-    }
-
-    // Email is verified, complete registration
-    setRegistering(true)
-    try {
-      alert('✅ Registration Complete! You can now log in.')
-      window.location.href = '/login/student'
-    } catch (err) {
-      alert('Something went wrong. Please try again.')
-    } finally {
-      setRegistering(false)
-    }
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4">
@@ -375,44 +357,11 @@ export default function StudentRegister(){
               onChange={e=>setCollegeEmail(e.target.value)} 
               className="w-full rounded-lg border border-gray-200 h-12 px-4 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" 
               placeholder="student@college.edu" 
-              disabled={emailVerified}
+              disabled={emailOtpSent}
             />
             {formErrors.collegeEmail && <p className="text-xs text-red-600 mt-1">{formErrors.collegeEmail}</p>}
-            {emailVerified && <p className="text-xs text-green-600 mt-1">✅ Email verified</p>}
+            {emailOtpSent && <p className="text-xs text-blue-600 mt-1">📧 OTP sent to this email</p>}
           </div>
-
-          {/* Email OTP Verification */}
-          {!emailVerified && (
-            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-              <p className="text-sm font-medium text-gray-700 mb-2">Email Verification (OTP)</p>
-              <p className="text-xs text-gray-600 mb-3">Please enter the 6-digit OTP sent to your email</p>
-              <div className="flex gap-2 mb-3">
-                <input 
-                  value={emailOtp} 
-                  onChange={e=>setEmailOtp(e.target.value)} 
-                  className="flex-1 rounded-lg border border-gray-200 h-10 px-4 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" 
-                  placeholder="Enter 6-digit OTP" 
-                  maxLength={6}
-                />
-                <button 
-                  type="button" 
-                  onClick={handleVerifyEmailOtp} 
-                  disabled={emailOtpLoading || !emailOtp}
-                  className="px-4 h-10 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Verify
-                </button>
-              </div>
-              <button 
-                type="button" 
-                onClick={handleSendEmailOtp} 
-                disabled={emailOtpLoading}
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium disabled:opacity-50"
-              >
-                {emailOtpLoading ? 'Sending...' : emailOtpSent ? 'Resend OTP' : 'Send OTP'}
-              </button>
-            </div>
-          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
@@ -492,16 +441,56 @@ export default function StudentRegister(){
           </div>
 
           <div>
-            <button 
-              type="button" 
-              onClick={handleRegister} 
-              disabled={registering || uploadingIdCard || uploadingSelfie || !collegeIdCardUrl || !liveSelfieUrl || !fullName.trim() || !college.trim() || !collegeEmail.trim() || !phone.trim() || !password || password !== confirmPassword}
-              className="w-full h-12 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {registering ? 'Registering...' : uploadingIdCard ? 'Uploading ID Card...' : uploadingSelfie ? 'Uploading Selfie...' : emailVerified ? 'Register' : 'Send OTP & Register'}
-            </button>
+            {!emailOtpSent ? (
+              <button 
+                type="button" 
+                onClick={handleSendEmailOtp} 
+                disabled={emailOtpLoading || uploadingIdCard || uploadingSelfie || !collegeIdCardUrl || !liveSelfieUrl || !fullName.trim() || !college.trim() || !collegeEmail.trim() || !phone.trim() || !password || password !== confirmPassword}
+                className="w-full h-12 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {emailOtpLoading ? '⏳ Registering...' : uploadingIdCard ? 'Uploading ID Card...' : uploadingSelfie ? 'Uploading Selfie...' : '📝 Register'}
+              </button>
+            ) : (
+              <div className="space-y-3">
+                {otpExpired ? (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <p className="text-sm text-red-600 font-medium mb-3">⏰ OTP has expired!</p>
+                    <button
+                      type="button"
+                      onClick={handleSendEmailOtp}
+                      disabled={emailOtpLoading}
+                      className="w-full h-12 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {emailOtpLoading ? '⏳ Sending...' : '🔄 Resend OTP'}
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={emailOtp}
+                        onChange={(e) => setEmailOtp(e.target.value.slice(0, 6))}
+                        placeholder="Enter 6-digit OTP"
+                        maxLength="6"
+                        className="w-full h-12 px-4 rounded-lg border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-500 font-bold text-center text-2xl tracking-widest"
+                      />
+                      <span className="absolute right-3 top-3 text-xs text-gray-500 font-medium">{Math.floor(otpTimeLeft / 60)}:{String(otpTimeLeft % 60).padStart(2, '0')}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleVerifyEmailOtp}
+                      disabled={emailOtpLoading || !emailOtp.trim()}
+                      className="w-full h-12 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {emailOtpLoading ? '⏳ Verifying...' : '✅ Verify OTP & Complete Registration'}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
             <p className="text-xs text-gray-500 text-center mt-2">
-              {!emailVerified && 'Step 1: Click to send OTP to your email, then verify to complete registration'}
+              {!emailOtpSent ? 'Step 1: Fill all details and click Register to send OTP' : otpExpired ? 'Your OTP has expired. Request a new one.' : 'Step 2: Enter OTP from your email to verify and complete registration'}
             </p>
           </div>
         </form>

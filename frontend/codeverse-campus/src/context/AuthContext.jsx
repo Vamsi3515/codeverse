@@ -9,6 +9,8 @@ export function AuthProvider({ children }) {
   const [userRole, setUserRole] = useState(null);
   const [userName, setUserName] = useState(null);
   const [userId, setUserId] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
+  const [isLoading, setIsLoading] = useState(true); // ✅ NEW: Track auth initialization
 
   // Check auth state on mount
   useEffect(() => {
@@ -16,8 +18,33 @@ export function AuthProvider({ children }) {
     
     // Listen for storage changes (logout from other tabs)
     window.addEventListener('storage', checkAuthState);
-    return () => window.removeEventListener('storage', checkAuthState);
+    
+    // Security: Check session validity every 5 minutes
+    const sessionCheckInterval = setInterval(() => {
+      validateSession();
+    }, 5 * 60 * 1000); // 5 minutes
+    
+    return () => {
+      window.removeEventListener('storage', checkAuthState);
+      clearInterval(sessionCheckInterval);
+    };
   }, []);
+
+  // ✅ SECURITY: Validate that session token is still valid
+  const validateSession = () => {
+    const token = localStorage.getItem('token');
+    const role = localStorage.getItem('userRole');
+    
+    // If token exists but role doesn't, clear everything (corrupted session)
+    if (token && !role) {
+      console.warn('⚠️ SECURITY: Corrupted session detected. Clearing auth state.');
+      logout();
+      return;
+    }
+    
+    // Additional validation could check token expiry time
+    // This is a basic check for token presence
+  };
 
   const checkAuthState = () => {
     const token = localStorage.getItem('token');
@@ -35,35 +62,59 @@ export function AuthProvider({ children }) {
       setUserRole(null);
       setUserName(null);
       setUserId(null);
+      setUserProfile(null);
     }
+    
+    // ✅ NEW: Mark auth check as complete
+    setIsLoading(false);
   };
 
-  const login = (token, role, name, id) => {
+  const login = (token, role, name, id, profile = null) => {
+    // ✅ SECURITY: Validate role before setting
+    const validRoles = ['student', 'organizer'];
+    if (!validRoles.includes(role)) {
+      console.error('❌ SECURITY: Invalid role attempted to login:', role);
+      return false;
+    }
+
     localStorage.setItem('token', token);
     localStorage.setItem('userRole', role);
     localStorage.setItem('userName', name);
     localStorage.setItem('userId', id);
+    localStorage.setItem('loginTimestamp', new Date().getTime());
     
     setIsLoggedIn(true);
     setUserRole(role);
     setUserName(name);
     setUserId(id);
+    setUserProfile(profile);
+    
+    return true;
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('userId');
-    localStorage.removeItem('userName');
-    localStorage.removeItem('isLoggedIn');
-    localStorage.removeItem('organizerToken');
-    localStorage.removeItem('organizerLoggedIn');
-    localStorage.removeItem('organizerName');
+    // Clear all auth data
+    const keysToRemove = [
+      'token',
+      'userRole',
+      'userId',
+      'userName',
+      'isLoggedIn',
+      'organizerToken',
+      'organizerLoggedIn',
+      'organizerName',
+      'loginTimestamp'
+    ];
+    
+    keysToRemove.forEach(key => localStorage.removeItem(key));
     
     setIsLoggedIn(false);
     setUserRole(null);
     setUserName(null);
     setUserId(null);
+    setUserProfile(null);
+    
+    console.log('✅ User logged out successfully');
   };
 
   return (
@@ -72,9 +123,12 @@ export function AuthProvider({ children }) {
       userRole,
       userName,
       userId,
+      userProfile,
+      isLoading,
       login,
       logout,
-      checkAuthState
+      checkAuthState,
+      validateSession
     }}>
       {children}
     </AuthContext.Provider>

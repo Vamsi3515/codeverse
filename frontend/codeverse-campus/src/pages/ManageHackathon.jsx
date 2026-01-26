@@ -64,7 +64,7 @@ export default function ManageHackathon(){
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-5xl mx-auto">
-        <button onClick={() => navigate(-1)} className="text-sm text-sky-600 mb-6 flex items-center gap-1">
+        <button onClick={() => navigate('/dashboard/organizer')} className="text-sm text-sky-600 mb-6 flex items-center gap-1">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
@@ -165,6 +165,33 @@ export default function ManageHackathon(){
             <div className="bg-white rounded-lg shadow-sm p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Actions</h3>
               <div className="space-y-3">
+                {!hackathon.isPublished && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        const response = await fetch(`http://localhost:5000/api/hackathons/${id}/publish`, {
+                          method: 'PUT',
+                          headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                            'Content-Type': 'application/json'
+                          }
+                        });
+                        const data = await response.json();
+                        if (data.success) {
+                          alert('✅ Hackathon published successfully!');
+                          window.location.reload();
+                        } else {
+                          alert('❌ Failed to publish: ' + data.message);
+                        }
+                      } catch (error) {
+                        alert('❌ Error: ' + error.message);
+                      }
+                    }}
+                    className="w-full px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg transition text-sm font-medium"
+                  >
+                    📤 Publish Hackathon
+                  </button>
+                )}
                 <button
                   onClick={() => navigate(`/hackathon/${id}/registrations`)}
                   className="w-full px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition text-sm font-medium"

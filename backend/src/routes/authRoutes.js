@@ -29,6 +29,7 @@ router.put('/reset-password/:token', asyncHandler(authController.resetPassword))
 router.post('/upload-college-id', upload.single('collegeIdCard'), asyncHandler(authController.uploadCollegeIdCard));
 router.post('/upload-selfie', upload.single('liveSelfie'), asyncHandler(authController.uploadLiveSelfie));
 router.post('/upload-proof', upload.single('proofDocument'), asyncHandler(authController.uploadProofDocument));
+router.post('/upload-hackathon-image', upload.single('hackathonImage'), asyncHandler(authController.uploadHackathonImage));
 
 // Protected routes
 router.get('/me', protect, asyncHandler(authController.getCurrentUser));

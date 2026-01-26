@@ -265,11 +265,16 @@ exports.updateHackathon = async (req, res) => {
     }
 
     console.log('📝 UPDATE HACKATHON - Incoming Data:', req.body);
+    console.log('⏱️ UPDATE HACKATHON - competitionDuration in request:', req.body.competitionDuration);
+    console.log('📅 UPDATE HACKATHON - startDate:', req.body.startDate, 'endDate:', req.body.endDate);
 
     const updatedHackathon = await Hackathon.findByIdAndUpdate(id, req.body, {
       new: true,
       runValidators: false,
     });
+
+    console.log('✅ HACKATHON UPDATED - competitionDuration in DB:', updatedHackathon?.competitionDuration);
+    console.log('✅ HACKATHON UPDATED - startDate in DB:', updatedHackathon?.startDate, 'endDate:', updatedHackathon?.endDate);
 
     res.status(200).json({
       success: true,
@@ -560,22 +565,29 @@ exports.getAvailableHackathons = async (req, res) => {
     const now = new Date();
     
     console.log('🔍 [BACKEND DEBUG] Fetching available hackathons...');
+    console.log('🔍 [BACKEND DEBUG] Current time:', now);
     
-    // Fetch published hackathons that are not completed
+    // First, let's see what's in the database
+    const allHackathons = await Hackathon.find({});
+    console.log('📊 [DEBUG] Total hackathons in DB:', allHackathons.length);
+    allHackathons.forEach((h, idx) => {
+      console.log(`  [${idx + 1}] Title: ${h.title} | isPublished: ${h.isPublished} | status: ${h.status}`);
+    });
+    
+    // Fetch published hackathons (not completed, not draft)
     const hackathons = await Hackathon.find({
       isPublished: true,
-      status: { $ne: 'completed' }
+      status: { $nin: ['completed', 'draft'] }
     })
     .populate('organizer', 'firstName lastName college')
     .sort({ startDate: 1 }) // Sort by start date ascending
-    .select('title college mode participationType startDate endDate status registeredCount maxParticipants minTeamSize maxTeamSize bannerImage location');
+    .select('title college mode participationType startDate endDate status registeredCount maxParticipants minTeamSize maxTeamSize bannerImage location isPublished');
     
-    console.log('🔍 [BACKEND DEBUG] Found', hackathons.length, 'hackathons');
+    console.log('🔍 [BACKEND DEBUG] Found', hackathons.length, 'published hackathons');
     hackathons.forEach((h, index) => {
-      console.log(`🏢 [HACKATHON ${index + 1}] Title:`, h.title);
-      console.log(`🏢 [HACKATHON ${index + 1}] College:`, h.college);
+      console.log(`🏢 [HACKATHON ${index + 1}] Title:`, h.title, '| Status:', h.status, '| Published:', h.isPublished);
+      console.log(`🏢 [HACKATHON ${index + 1}] StartDate:`, h.startDate, '| EndDate:', h.endDate);
       console.log(`🏢 [HACKATHON ${index + 1}] Mode:`, h.mode);
-      console.log(`🏢 [HACKATHON ${index + 1}] Location:`, h.location);
       if (h.location) {
         console.log(`📍 [VENUE LOCATION ${index + 1}] venueName:`, h.location.venueName);
         console.log(`📍 [VENUE LOCATION ${index + 1}] address:`, h.location.address);
@@ -599,16 +611,18 @@ exports.getAvailableHackathons = async (req, res) => {
         hackathonObj.displayStatus = 'Upcoming';
       }
 
+      console.log(`📊 [STATUS UPDATE] ${hackathonObj.title}: ${hackathonObj.displayStatus}`);
       return hackathonObj;
     });
 
+    console.log('✅ [RESPONSE] Sending', updatedHackathons.length, 'hackathons to frontend');
     res.status(200).json({
       success: true,
       count: updatedHackathons.length,
       hackathons: updatedHackathons,
     });
   } catch (error) {
-    console.error('Error fetching available hackathons:', error);
+    console.error('❌ Error fetching available hackathons:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

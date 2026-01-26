@@ -172,7 +172,7 @@ a:hover,a:focus{text-decoration:none}
 .cv-register .cv-upload{ background:#fff; }
 .cv-register .cv-upload p{ margin:0 }
 .cv-register button{ cursor:pointer }
-.cv-register button[ type="button" ]{ transition: background .12s ease, transform .08s ease }
+.cv-register button[type="button"]{ transition: background .12s ease, transform .08s ease }
 .cv-register .cv-otp-button:hover{ transform:translateY(-1px) }
 .cv-register .cv-upload{ border-style:dashed; }
 .cv-register .cv-upload input{ display:none }
