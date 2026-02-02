@@ -217,8 +217,9 @@ export default function EditHackathon() {
         return
       }
 
-      if (problemStatements.length === 0) {
-        setError('Please add at least one problem statement')
+      // Problem statements are required only for ONLINE hackathons
+      if (mode === 'online' && problemStatements.length === 0) {
+        setError('Please add at least one problem statement for online hackathons')
         setSaving(false)
         return
       }
@@ -676,7 +677,19 @@ export default function EditHackathon() {
 
           {/* Problem Statements */}
           <div>
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">Coding Problem Statements</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-800">Coding Problem Statements</h2>
+              {mode === 'offline' && (
+                <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+                  Optional for offline hackathons
+                </span>
+              )}
+              {mode === 'online' && (
+                <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium">
+                  Required for online hackathons
+                </span>
+              )}
+            </div>
             
             {/* Add Problem Button */}
             <div className="mb-6">

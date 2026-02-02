@@ -750,7 +750,9 @@ exports.verifyRegistrationDetails = async (req, res) => {
       _id: registration._id,
       status: registration.status,
       registeredAt: registration.registeredAt,
+      registrationDate: registration.registrationDate,
       teamName: registration.teamName || null,
+      participationType: registration.participationType,
       
       // Student details
       student: {
@@ -762,6 +764,20 @@ exports.verifyRegistrationDetails = async (req, res) => {
         branch: studentProfile.branch || 'N/A',
         selfie: getFullImageUrl(selfieUrl)
       },
+      
+      // Team details (if applicable)
+      team: registration.team ? {
+        teamName: registration.team.teamName,
+        leader: {
+          email: registration.team.leader.email,
+          rollNumber: registration.team.leader.rollNumber
+        },
+        members: registration.team.members && registration.team.members.length > 0 ? registration.team.members.map(m => ({
+          email: m.email,
+          rollNumber: m.rollNumber,
+          status: m.status
+        })) : []
+      } : null,
       
       // Hackathon details
       hackathon: {

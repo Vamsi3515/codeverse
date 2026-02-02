@@ -82,8 +82,9 @@ export default function RegistrationVerification() {
     return null
   }
 
-  const { student, hackathon, status, registeredAt, teamName } = registration
+  const { student, hackathon, status, registeredAt, registrationDate, teamName, team, participationType } = registration
   const isActive = status === 'registered' || status === 'confirmed'
+  const isTeamRegistration = participationType && participationType.toUpperCase() === 'TEAM'
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 py-12 px-4">
@@ -162,11 +163,62 @@ export default function RegistrationVerification() {
           </div>
 
           {/* Team Info (if applicable) */}
-          {teamName && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-sm font-semibold text-blue-900">
-                <span className="text-blue-600">👥 Team:</span> {teamName}
-              </p>
+          {isTeamRegistration && team && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-4">
+              <div className="border-b border-blue-200 pb-3">
+                <p className="text-sm font-semibold text-blue-900">
+                  <span className="text-blue-600">👥 Team Name:</span> {team.teamName}
+                </p>
+              </div>
+
+              {/* Team Leader */}
+              <div>
+                <h4 className="text-sm font-semibold text-blue-900 mb-2 flex items-center gap-2">
+                  <span className="text-lg">👤</span> Team Leader
+                </h4>
+                <div className="bg-white rounded p-3 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-xs text-gray-600">Email:</span>
+                    <span className="text-xs font-medium text-gray-900">{team.leader.email}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-xs text-gray-600">Roll Number:</span>
+                    <span className="text-xs font-medium text-gray-900">{team.leader.rollNumber}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Team Members */}
+              {team.members && team.members.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-semibold text-blue-900 mb-2 flex items-center gap-2">
+                    <span className="text-lg">👥</span> Team Members ({team.members.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {team.members.map((member, index) => (
+                      <div key={index} className="bg-white rounded p-3 space-y-2">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex justify-between">
+                              <span className="text-xs text-gray-600">Email:</span>
+                              <span className="text-xs font-medium text-gray-900">{member.email}</span>
+                            </div>
+                            <div className="flex justify-between mt-1">
+                              <span className="text-xs text-gray-600">Roll Number:</span>
+                              <span className="text-xs font-medium text-gray-900">{member.rollNumber}</span>
+                            </div>
+                          </div>
+                          <span className={`text-xs px-2 py-1 rounded font-semibold ${
+                            member.status === 'CONFIRMED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {member.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -244,24 +296,32 @@ export default function RegistrationVerification() {
             </div>
 
             {/* Registration Status */}
-            <div className={`rounded-lg p-4 ${
+            <div className={`rounded-lg p-4 grid grid-cols-2 gap-4 ${
               isActive ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
             }`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-gray-700">Registration Status</p>
-                  <p className={`text-lg font-bold ${
-                    isActive ? 'text-green-700' : 'text-red-700'
-                  }`}>
-                    {status.toUpperCase()}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-600">Registered On</p>
-                  <p className="text-sm font-semibold text-gray-900">
-                    {new Date(registeredAt).toLocaleDateString('en-IN')}
-                  </p>
-                </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-700">Registration Status</p>
+                <p className={`text-lg font-bold ${
+                  isActive ? 'text-green-700' : 'text-red-700'
+                }`}>
+                  {status.toUpperCase()}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-gray-600">Registered On</p>
+                <p className="text-sm font-semibold text-gray-900">
+                  {new Date(registrationDate || registeredAt).toLocaleDateString('en-IN', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {new Date(registrationDate || registeredAt).toLocaleTimeString('en-IN', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </p>
               </div>
             </div>
 
