@@ -4,7 +4,7 @@ export default function QRCodeDisplay({ hackathon, registration, onClose }) {
   const handleDownload = () => {
     if (!registration.qrCode) return
 
-    // Convert data URL to blob and download
+    
     const link = document.createElement('a')
     link.href = registration.qrCode
     link.download = `${registration.studentName}-${hackathon.title}-QR.png`

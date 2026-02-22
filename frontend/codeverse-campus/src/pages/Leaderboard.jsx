@@ -44,11 +44,29 @@ export default function Leaderboard() {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      setLeaderboard(leaderRes.data.leaderboard || []);
+      const finalizedLeaderboard = (leaderRes.data.leaderboard || []).map((entry, index) => {
+        let certificateType = 'NONE';
+
+        if (entry.disqualified === true) {
+          certificateType = 'NONE';
+        } else if (index === 0) {
+          certificateType = 'FIRST_PRIZE';
+        } else if (index === 1) {
+          certificateType = 'SECOND_PRIZE';
+        } else if (index === 2) {
+          certificateType = 'THIRD_PRIZE';
+        } else if ((entry.problemsSubmitted?.length || 0) > 0) {
+          certificateType = 'PARTICIPATION';
+        }
+
+        return { ...entry, certificateType };
+      });
+
+      setLeaderboard(finalizedLeaderboard);
       
       // Find current user's rank
       const userId = localStorage.getItem('userId');
-      const userRank = leaderRes.data.leaderboard?.find(
+      const userRank = finalizedLeaderboard.find(
         entry => entry.userId?._id === userId
       );
       setCurrentUserRank(userRank);
@@ -176,6 +194,17 @@ export default function Leaderboard() {
               <div className="text-right">
                 <div className="text-3xl font-bold text-blue-400 mb-2">{currentUserRank.leaderboardScore}</div>
                 <p className="text-gray-400 text-sm">{currentUserRank.problemsSubmitted?.length || 0} problems solved</p>
+                {/* Certificate Button */}
+                <button
+                  onClick={() => navigate(`/certificate/${id}`)}
+                  className="mt-4 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold rounded-lg transition-all transform hover:scale-105 flex items-center gap-2"
+                  title="View your certificate"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7 12a5 5 0 1110 0A5 5 0 017 12z" />
+                  </svg>
+                  View Certificate
+                </button>
               </div>
             </div>
           </div>

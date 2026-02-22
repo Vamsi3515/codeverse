@@ -3,15 +3,11 @@ import React, { useState, useEffect } from 'react'
 const API_URL = 'http://localhost:5000/api'
 const RAZORPAY_KEY_ID = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_YOUR_TEST_KEY_ID'
 
-/**
- * PaymentModal - Payment processing for hackathon registration
- * Handles both solo and team registrations with Razorpay integration
- */
 export default function PaymentModal({
   open,
   hackathon,
-  registrationType, // 'SOLO' or 'TEAM'
-  teamData, // Only for team registrations
+  registrationType, 
+  teamData, 
   registrationFee,
   onClose,
   onPaymentSuccess,
@@ -51,7 +47,7 @@ export default function PaymentModal({
     setError('')
 
     try {
-      // Step 1: Create payment order on backend
+      
       const token = localStorage.getItem('token')
       if (!token) {
         setError('Please login to proceed with payment')

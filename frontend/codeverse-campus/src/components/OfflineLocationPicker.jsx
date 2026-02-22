@@ -10,7 +10,7 @@ export default function OfflineLocationPicker({ onLocationSelect, existingLocati
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
-  // Optional Google Geocoding (requires VITE_GOOGLE_MAPS_API_KEY)
+
   const googleApiKey = import.meta?.env?.VITE_GOOGLE_MAPS_API_KEY
 
   const handleGetLocation = async () => {
@@ -18,7 +18,7 @@ export default function OfflineLocationPicker({ onLocationSelect, existingLocati
     setError('')
     setSuccess('')
 
-    // Validate that venue details are filled
+ 
     if (!venueName.trim() || !address.trim() || !city.trim()) {
       setError('Please fill in Venue Name, Address, and City first')
       setLoading(false)
@@ -26,12 +26,12 @@ export default function OfflineLocationPicker({ onLocationSelect, existingLocati
     }
 
     try {
-      // Normalize inputs
+      
       const cleanedVenue = venueName.trim()
       const cleanedAddress = address.trim()
       const cleanedCity = city.trim()
 
-      // Four address formats to maximize matches
+     
       const addressFormats = [
         `${cleanedVenue}, ${cleanedAddress}, ${cleanedCity}, India`,
         `${cleanedAddress}, ${cleanedCity}, India`,
@@ -43,7 +43,7 @@ export default function OfflineLocationPicker({ onLocationSelect, existingLocati
 
       const providers = []
 
-      // Provider 1: Google Geocoding (only if API key present)
+      
       if (googleApiKey) {
         providers.push({
           name: 'GoogleGeocoding',
@@ -64,7 +64,7 @@ export default function OfflineLocationPicker({ onLocationSelect, existingLocati
         })
       }
 
-      // Provider 2: Nominatim (no key)
+      
       providers.push({
         name: 'Nominatim',
         lookup: async (addr) => {

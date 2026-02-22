@@ -65,6 +65,35 @@ export default function StudentRegister(){
 
     return () => clearInterval(timer)
   }, [emailOtpSent, otpExpired])
+  const verifyStudentIdWithFastAPI = async () => {
+  if (!collegeIdCard) {
+    alert("Please upload ID card");
+    return { success: false };
+  }
+
+  const formData = new FormData();
+  formData.append("full_name", fullName);
+  formData.append("college_name", college);
+  formData.append("roll_number", rollNumber);
+  formData.append("file", collegeIdCard);
+
+  try {
+    const response = await fetch(
+      "http://127.0.0.1:8000/verification/verify-student-id",
+      {
+        method: "POST",
+        body: formData,
+      }
+    );
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("FastAPI Verification Error:", error);
+    return { success: false, message: "Verification server error" };
+  }
+};
+
 
   // Send Email OTP
   const handleSendEmailOtp = async ()=>{
@@ -74,15 +103,26 @@ export default function StudentRegister(){
     }
     
     // Validate other required fields before sending OTP
-    if(!fullName.trim() || !college.trim() || !password || !phone.trim()) {
-      alert('⚠️ Please fill in all required fields (Name, College, Email, Phone, Password) before sending OTP')
-      return
-    }
+   if (
+  !fullName.trim() ||
+  !college.trim() ||
+  !rollNumber.trim() ||   // 🔥 ADD THIS HERE
+  !password ||
+  !phone.trim()
+) {
+  alert('⚠️ Please fill in all required fields (Name, College, Roll Number, Phone, Password)')
+  return
+}
+
     
-    if(!collegeIdCardUrl) {
-      alert('⚠️ Please upload your College ID Card first')
-      return
-    }
+    // 🔥 NEW STEP - ID TEXT VERIFICATION
+const verificationResult = await verifyStudentIdWithFastAPI();
+
+if (!verificationResult.success) {
+  alert("❌ ID Verification Failed: " + verificationResult.message);
+  return;
+}
+
     
     if(!liveSelfieUrl) {
       alert('⚠️ Please capture a live selfie first')
@@ -262,15 +302,15 @@ export default function StudentRegister(){
     if (!file) return
 
     // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png']
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf']
     if (!allowedTypes.includes(file.type)) {
-      setCollegeIdCardError('Only .jpg, .jpeg, and .png files are allowed')
+      setCollegeIdCardError('Only JPG, PNG, or PDF files are allowed')
       return
     }
 
-    // Validate file size (2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      setCollegeIdCardError('File size must be less than 2MB')
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setCollegeIdCardError('File size must be less than 5MB')
       return
     }
 

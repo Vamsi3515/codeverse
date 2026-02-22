@@ -42,9 +42,11 @@ exports.executeCode = async (req, res) => {
       run_memory_limit: -1
     };
 
-    // Call Piston API
+    // Call Piston API with timeout
     console.log(`🚀 Executing ${language} code via Piston...`);
-    const response = await axios.post(`${PISTON_API_URL}/execute`, payload);
+    const response = await axios.post(`${PISTON_API_URL}/execute`, payload, {
+      timeout: 15000
+    });
     
     // Process response
     const result = response.data;
@@ -69,6 +71,7 @@ exports.executeCode = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Execution Error:', error.message);
-    res.status(500).json({ success: false, message: 'Failed to execute code' });
+    console.error('❌ Full error:', error);
+    res.status(500).json({ success: false, message: 'Failed to execute code: ' + error.message });
   }
 };

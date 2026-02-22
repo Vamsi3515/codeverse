@@ -56,7 +56,7 @@ export default function Landing(){
             </Link>
             <Link 
               to="/login" 
-              className="px-6 py-2.5 bg-white/10 backdrop-blur-md border-2 border-white/30 text-gray-900 font-semibold text-sm rounded-lg hover:bg-white/20 transition-all duration-300"
+              className="px-6 py-2.5 bg-indigo-600 text-white font-semibold text-sm rounded-lg hover:bg-indigo-700 transition-all duration-300"
             >
               Sign In
             </Link>

@@ -1,20 +1,16 @@
 import React from 'react'
 
-/**
- * QR Code Display Modal with Download & Print
- * Shows QR code for offline hackathons with download and print functionality
- */
+
+ 
 export default function QRCodeModal({ open, hackathon, qrCode, registration, onClose }) {
   if (!open || !hackathon) return null
 
-  // Get user info from localStorage
+ 
   const userInfo = JSON.parse(localStorage.getItem('user') || '{}')
   const rollNumber = userInfo.rollNumber || registration?.rollNumber || 'student'
   const fullName = userInfo.fullName || userInfo.name || 'Student'
 
-  /**
-   * Download QR Code as PNG
-   */
+ 
   const handleDownloadQR = () => {
     if (!qrCode) {
       alert('QR code not available')
@@ -24,13 +20,13 @@ export default function QRCodeModal({ open, hackathon, qrCode, registration, onC
     try {
       const link = document.createElement('a')
       
-      // Sanitize hackathon title for filename
+      
       const sanitizedTitle = hackathon.title
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '_')
         .replace(/^_+|_+$/g, '')
       
-      // Filename: hackathon_<title>_<rollNumber>.png
+    
       const filename = `hackathon_${sanitizedTitle}_${rollNumber}.png`
       
       link.href = qrCode

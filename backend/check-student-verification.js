@@ -33,9 +33,9 @@ async function checkStudentStatus() {
     console.log('\n' + '='.repeat(60));
     console.log('\n🔍 LOGIN STATUS:');
     
-    const canLogin = student.isEmailVerified && 
-                     student.collegeIdCard && 
-                     student.liveSelfie && 
+    const canLogin = student.isEmailVerified &&
+                     student.collegeIdCard &&
+                     student.liveSelfie &&
                      student.password;
     
     if (canLogin) {

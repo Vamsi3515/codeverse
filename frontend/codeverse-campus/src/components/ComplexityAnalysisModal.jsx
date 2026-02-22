@@ -1,12 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AlertCircle, CheckCircle, AlertTriangle, Loader } from 'lucide-react';
 
-/**
- * ComplexityAnalysisModal.jsx
- * Professional UI for displaying code complexity analysis results
- * Shows time/space complexity with status indicators
- * Provides clear feedback on whether solution meets constraints
- */
+
 const ComplexityAnalysisModal = ({ 
   isOpen, 
   onClose, 
