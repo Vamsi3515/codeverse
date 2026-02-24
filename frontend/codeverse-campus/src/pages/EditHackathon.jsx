@@ -211,8 +211,8 @@ export default function EditHackathon() {
         return
       }
 
-      if (mode === 'offline' && !offlineLocation) {
-        setError('Location is required for offline hackathons')
+      if ((mode === 'offline' || mode === 'hybrid') && !offlineLocation) {
+        setError('Location is required for offline/hybrid hackathons')
         setSaving(false)
         return
       }
@@ -514,10 +514,33 @@ export default function EditHackathon() {
           </div>
 
           {/* Offline Location */}
-          {mode === 'offline' && (
+          {(mode === 'offline' || mode === 'hybrid') && (
             <div>
               <h2 className="text-xl font-semibold text-gray-800 mb-3">Offline Location</h2>
-              <OfflineLocationPicker value={offlineLocation} onChange={setOfflineLocation} />
+              {!offlineLocation && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-700 font-medium">
+                    ⚠️ Location is required for {mode === 'hybrid' ? 'hybrid' : 'offline'} hackathons
+                  </p>
+                  <p className="text-xs text-red-600 mt-1">
+                    Please fill in venue details and click "✅ Save Location" to update
+                  </p>
+                </div>
+              )}
+              <OfflineLocationPicker 
+                onLocationSelect={setOfflineLocation} 
+                existingLocation={offlineLocation}
+              />
+              {offlineLocation && (
+                <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-700 font-medium">
+                    ✅ Location saved: {offlineLocation.venueName}, {offlineLocation.city}
+                  </p>
+                  <p className="text-xs text-green-600 mt-1">
+                    ({offlineLocation.latitude.toFixed(4)}, {offlineLocation.longitude.toFixed(4)})
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -1073,8 +1096,8 @@ export default function EditHackathon() {
           <div className="flex items-center gap-3">
             <button
               type="submit"
-              disabled={saving}
-              className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60"
+              disabled={saving || ((mode === 'offline' || mode === 'hybrid') && !offlineLocation)}
+              className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {saving ? 'Saving...' : 'Save Changes'}
             </button>

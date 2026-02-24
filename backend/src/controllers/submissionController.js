@@ -372,7 +372,7 @@ exports.getLeaderboard = async (req, res) => {
       hackathonId,
       status: 'completed',
     })
-      .populate('userId', 'firstName lastName email')
+      .populate('userId', 'firstName lastName email phone phoneNumber college department year rollNumber')
       .lean();
 
     if (submissions.length === 0) {
@@ -388,10 +388,21 @@ exports.getLeaderboard = async (req, res) => {
     // Calculate leaderboard positions using fair algorithm
     const rankedLeaderboard = LeaderboardScoreCalculator.calculateLeaderboardPositions(submissions, hackathon);
 
-    // Return top N (limit)
-    const topLeaderboard = rankedLeaderboard.slice(0, Math.min(parseInt(limit), rankedLeaderboard.length));
+    // Ensure userId is included in each leaderboard entry
+    const leaderboardWithUserId = rankedLeaderboard.map(entry => ({
+      ...entry,
+      userId: entry.userId?._id || entry.userId,
+      _id: entry._id,
+      studentName: entry.studentName,
+      email: entry.email,
+      leaderboardScore: entry.leaderboardScore,
+      problemsSolved: entry.problemsSubmitted?.length || 0,
+    }));
 
-    console.log(`✅ Leaderboard generated: Top ${topLeaderboard.length} of ${rankedLeaderboard.length} participants`);
+    // Return top N (limit)
+    const topLeaderboard = leaderboardWithUserId.slice(0, Math.min(parseInt(limit), leaderboardWithUserId.length));
+
+    console.log(`✅ Leaderboard generated: Top ${topLeaderboard.length} of ${rankedLeaderboard.length} participants`, topLeaderboard.map(l => ({ userId: l.userId, name: l.studentName })));
 
     res.status(200).json({
       success: true,

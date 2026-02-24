@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 
 export default function OfflineLocationPicker({ onLocationSelect, existingLocation }) {
   const [venueName, setVenueName] = useState(existingLocation?.venueName || '')
@@ -9,6 +9,17 @@ export default function OfflineLocationPicker({ onLocationSelect, existingLocati
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+
+  // ✅ Update internal state when existingLocation changes (for edit page auto-fill)
+  useEffect(() => {
+    if (existingLocation) {
+      setVenueName(existingLocation.venueName || '')
+      setAddress(existingLocation.address || '')
+      setCity(existingLocation.city || '')
+      setLatitude(existingLocation.latitude || '')
+      setLongitude(existingLocation.longitude || '')
+    }
+  }, [existingLocation])
 
   // Optional Google Geocoding (requires VITE_GOOGLE_MAPS_API_KEY)
   const googleApiKey = import.meta?.env?.VITE_GOOGLE_MAPS_API_KEY

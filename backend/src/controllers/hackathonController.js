@@ -567,13 +567,6 @@ exports.getAvailableHackathons = async (req, res) => {
     console.log('🔍 [BACKEND DEBUG] Fetching available hackathons...');
     console.log('🔍 [BACKEND DEBUG] Current time:', now);
     
-    // First, let's see what's in the database
-    const allHackathons = await Hackathon.find({});
-    console.log('📊 [DEBUG] Total hackathons in DB:', allHackathons.length);
-    allHackathons.forEach((h, idx) => {
-      console.log(`  [${idx + 1}] Title: ${h.title} | isPublished: ${h.isPublished} | status: ${h.status}`);
-    });
-    
     // Fetch published hackathons (not completed, not draft)
     const hackathons = await Hackathon.find({
       isPublished: true,
@@ -581,19 +574,25 @@ exports.getAvailableHackathons = async (req, res) => {
     })
     .populate('organizer', 'firstName lastName college')
     .sort({ startDate: 1 }) // Sort by start date ascending
-    .select('title college mode participationType startDate endDate status registeredCount maxParticipants minTeamSize maxTeamSize bannerImage location isPublished');
+    // ✅ Include ALL necessary fields including location for offline hackathons
+    .select('title college description mode participationType startDate endDate status registeredCount maxParticipants minTeamSize maxTeamSize bannerImage location isPublished antiCheatRules problemStatements competitionDuration');
     
     console.log('🔍 [BACKEND DEBUG] Found', hackathons.length, 'published hackathons');
+    
+    // Ensure location data is complete and log it
     hackathons.forEach((h, index) => {
-      console.log(`🏢 [HACKATHON ${index + 1}] Title:`, h.title, '| Status:', h.status, '| Published:', h.isPublished);
-      console.log(`🏢 [HACKATHON ${index + 1}] StartDate:`, h.startDate, '| EndDate:', h.endDate);
-      console.log(`🏢 [HACKATHON ${index + 1}] Mode:`, h.mode);
-      if (h.location) {
-        console.log(`📍 [VENUE LOCATION ${index + 1}] venueName:`, h.location.venueName);
-        console.log(`📍 [VENUE LOCATION ${index + 1}] address:`, h.location.address);
-        console.log(`📍 [VENUE LOCATION ${index + 1}] city:`, h.location.city);
-        console.log(`📍 [VENUE LOCATION ${index + 1}] latitude:`, h.location.latitude);
-        console.log(`📍 [VENUE LOCATION ${index + 1}] longitude:`, h.location.longitude);
+      console.log(`🏢 [HACKATHON ${index + 1}] Title: "${h.title}" | Mode: ${h.mode} | Status: ${h.status}`);
+      
+      if (h.mode === 'offline' || h.mode === 'hybrid') {
+        if (h.location) {
+          console.log(`📍 [LOCATION ${index + 1}] venueName: "${h.location.venueName}"`);
+          console.log(`📍 [LOCATION ${index + 1}] address: "${h.location.address}"`);
+          console.log(`📍 [LOCATION ${index + 1}] city: "${h.location.city}"`);
+          console.log(`📍 [LOCATION ${index + 1}] latitude: ${h.location.latitude} (type: ${typeof h.location.latitude})`);
+          console.log(`📍 [LOCATION ${index + 1}] longitude: ${h.location.longitude} (type: ${typeof h.location.longitude})`);
+        } else {
+          console.warn(`⚠️ [LOCATION ${index + 1}] MISSING - ${h.mode} hackathon has no location data!`);
+        }
       }
     });
 

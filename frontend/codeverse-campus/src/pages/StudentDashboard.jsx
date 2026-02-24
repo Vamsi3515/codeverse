@@ -435,14 +435,23 @@ export default function StudentDashboard(){
       const data = await response.json()
       console.log('📡 [API RESPONSE] Success:', data.success);
       console.log('📡 [API RESPONSE] Raw hackathons count:', data.hackathons?.length || 0);
-      console.log('📡 [API RESPONSE] Full response:', data);
+      console.log('🔍 [API RAW DATA] Full hackathons array:', data.hackathons);
       
       if (data.success) {
         console.log('✅ [API SUCCESS] Processing', data.hackathons.length, 'hackathons...');
         
         // Transform API hackathons to match the expected format
         const transformedHackathons = data.hackathons.map((h, idx) => {
-          console.log(`🔄 [TRANSFORM ${idx + 1}] Raw hackathon:`, h);
+          console.log(`\n🔄 [TRANSFORM ${idx + 1}] Processing: "${h.title}" | Mode: ${h.mode}`);
+          console.log(`   Raw location from API:`, h.location);
+          
+          // Check location data
+          if ((h.mode === 'offline' || h.mode === 'hybrid') && h.location) {
+            console.log(`   ✅ Location data found: venue="${h.location.venueName}", lat=${h.location.latitude}, lng=${h.location.longitude}`);
+          } else if ((h.mode === 'offline' || h.mode === 'hybrid') && !h.location) {
+            console.warn(`   ❌ MISSING LOCATION DATA for ${h.mode} hackathon!`);
+          }
+          
           const transformed = {
             id: h._id,
             _id: h._id,
@@ -453,28 +462,27 @@ export default function StudentDashboard(){
             endDate: h.endDate,
             mode: h.mode.charAt(0).toUpperCase() + h.mode.slice(1), // Capitalize
             status: h.displayStatus || 'Upcoming',
-            displayStatus: h.displayStatus || 'Upcoming', // Keep both for filter
+            displayStatus: h.displayStatus || 'Upcoming',
             participationType: h.participationType,
             minTeamSize: h.minTeamSize,
             maxTeamSize: h.maxTeamSize,
             registeredCount: h.registeredCount,
             maxParticipants: h.maxParticipants,
-            registrationFee: h.registrationFee || 0, // Add registration fee field
+            registrationFee: h.registrationFee || 0,
             image: h.bannerImage || 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=1200&q=80',
-            bannerImage: h.bannerImage || '', // Add bannerImage field
+            bannerImage: h.bannerImage || '',
             latitude: h.location?.latitude,
             longitude: h.location?.longitude,
             location: h.location // Include full location object
           };
-          console.log(`🔄 [TRANSFORM ${idx + 1}] Transformed hackathon:`, transformed);
-          console.log(`🔄 [TRANSFORM ${idx + 1}] bannerImage:`, transformed.bannerImage);
-          console.log(`🔄 [TRANSFORM ${idx + 1}] displayStatus:`, transformed.displayStatus);
-          console.log(`🔄 [TRANSFORM ${idx + 1}] Registration Fee:`, transformed.registrationFee);
-          console.log(`🔄 [TRANSFORM ${idx + 1}] Location data:`, transformed.location);
+          
+          console.log(`   After transform - location:`, transformed.location);
+          console.log(`   After transform - latitude: ${transformed.latitude}, longitude: ${transformed.longitude}\n`);
           return transformed;
         });
         
-        console.log('✅ [TRANSFORMED DATA] Final transformed hackathons:', transformedHackathons);
+        console.log('✅ [TRANSFORMED DATA] Total:', transformedHackathons.length);
+        console.log('🔍 [TRANSFORMED DATA] Offline/Hybrid hackathons:', transformedHackathons.filter(h => h.mode === 'Offline' || h.mode === 'Hybrid').map(h => ({ title: h.title, hasLocation: !!h.location, lat: h.location?.latitude, lng: h.location?.longitude })));
         setApiHackathons(transformedHackathons)
       }
     } catch (err) {
@@ -735,74 +743,65 @@ export default function StudentDashboard(){
   function closeResult(){ setResultModal({ open:false, item:null }) }
 
   function showDistance(hackathon) {
-    console.log('🔍 [GET LOCATION DEBUG] ============ START ============');
+    console.log('\n� [GET LOCATION] Getting location for:', hackathon.title);
     
-    // Get student college address
-    const collegeAddress = localStorage.getItem('userCollegeAddress') || localStorage.getItem('userCollege');
-    console.log('📍 [STUDENT FROM] College Address from localStorage:', collegeAddress);
-    console.log('📍 [STUDENT FROM] userCollegeAddress:', localStorage.getItem('userCollegeAddress'));
-    console.log('📍 [STUDENT FROM] userCollege:', localStorage.getItem('userCollege'));
-    
-    if (!collegeAddress) {
-      console.error('❌ [FAILURE] Student college address is missing!');
+    // Priority: Always use hackathon location
+    if (!hackathon.location) {
+      console.error('❌ No location data for this hackathon');
+      alert('This offline hackathon does not have location details set. Please contact the organizer.');
       return;
     }
     
-    // Log complete hackathon object
-    console.log('🏢 [HACKATHON] Full hackathon object:', hackathon);
-    console.log('🏢 [HACKATHON] Hackathon title:', hackathon.title);
-    console.log('🏢 [HACKATHON] Hackathon college:', hackathon.college);
-    console.log('🏢 [HACKATHON] Hackathon location object:', hackathon.location);
+    const lat = hackathon.location.latitude;
+    const lng = hackathon.location.longitude;
+    const venueName = hackathon.location.venueName || 'Hackathon Venue';
+    const venueAddress = hackathon.location.address || '';
+    const venueCity = hackathon.location.city || '';
     
-    let destination = '';
-    let destinationType = '';
+    // Validate hackathon coordinates
+    const hasValidCoords = lat !== undefined && lat !== null && lng !== undefined && lng !== null && 
+                          lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
     
-    // Check if valid coordinates exist
-    const lat = hackathon.location?.latitude;
-    const lng = hackathon.location?.longitude;
-    console.log('📍 [VENUE TO] Raw latitude:', lat);
-    console.log('📍 [VENUE TO] Raw longitude:', lng);
+    if (!hasValidCoords) {
+      console.error('Invalid hackathon coordinates');
+      alert('This hackathon has invalid location coordinates. Please contact the organizer.');
+      return;
+    }
     
-    const hasValidCoords = lat && lng && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
-    console.log('📍 [VENUE TO] Has valid coordinates:', hasValidCoords);
+    const coords = `${lat},${lng}`;
+    console.log('Hackathon Venue:', venueName);
+    console.log('   Coordinates:', coords);
+    console.log('   Address:', venueAddress, venueCity);
     
-    if (hasValidCoords) {
-      // Use coordinates (most accurate)
-      destination = `${lat},${lng}`;
-      destinationType = 'COORDINATES';
-      console.log('✅ [VENUE TO] Using COORDINATES:', destination);
-    } else if (hackathon.location?.address) {
-      // Use full address
-      destination = hackathon.location.address;
-      if (hackathon.location.city) destination += ', ' + hackathon.location.city;
-      destinationType = 'ADDRESS';
-      console.log('✅ [VENUE TO] Using ADDRESS:', destination);
-    } else if (hackathon.location?.venueName) {
-      // Use venue name
-      destination = hackathon.location.venueName;
-      if (hackathon.location.city) destination += ', ' + hackathon.location.city;
-      destinationType = 'VENUE_NAME';
-      console.log('✅ [VENUE TO] Using VENUE_NAME:', destination);
+    // Try to get student origin (optional - for routing)
+    const studentLat = localStorage.getItem('userLatitude');
+    const studentLng = localStorage.getItem('userLongitude');
+    
+    let mapsUrl = '';
+    
+    // If student coordinates available, create routing URL
+    if (studentLat && studentLng) {
+      const studentCoords = `${studentLat},${studentLng}`;
+      const isValidStudentCoords = parseFloat(studentLat) >= -90 && parseFloat(studentLat) <= 90 && 
+                                   parseFloat(studentLng) >= -180 && parseFloat(studentLng) <= 180;
+      
+      if (isValidStudentCoords) {
+        // Show route from student location to hackathon - coordinates are accurate
+        mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(studentCoords)}&destination=${encodeURIComponent(coords)}&travelmode=driving`;
+        console.log('Opening route: Student Location → Hackathon Venue');
+      } else {
+        // Invalid student coords, show exact hackathon venue using coordinates directly
+        mapsUrl = `https://www.google.com/maps/@${lat},${lng},17z`;
+        console.log('Showing hackathon venue location with coordinates');
+      }
     } else {
-      console.error('❌ [FAILURE] No venue location data available!');
-      console.error('❌ [FAILURE] hackathon.location is:', hackathon.location);
-      return;
+      // No student coordinates, show the exact hackathon location using coordinates
+      // @lat,lng,17z directly pins the location on Google Maps without venue name lookup
+      mapsUrl = `https://www.google.com/maps/@${lat},${lng},17z`;
+      console.log('Showing hackathon venue at', coords);
     }
     
-    console.log('🗺️ [MAPS URL] Destination type:', destinationType);
-    console.log('🗺️ [MAPS URL] FROM (origin):', collegeAddress);
-    console.log('🗺️ [MAPS URL] TO (destination):', destination);
-    
-    // Build and open Google Maps URL
-    const origin = encodeURIComponent(collegeAddress);
-    const dest = encodeURIComponent(destination);
-    const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&travelmode=driving`;
-    
-    console.log('🗺️ [MAPS URL] Encoded origin:', origin);
-    console.log('🗺️ [MAPS URL] Encoded destination:', dest);
-    console.log('🗺️ [MAPS URL] Full Google Maps URL:', mapsUrl);
-    console.log('🔍 [GET LOCATION DEBUG] ============ END ============');
-    
+    console.log('Opening Maps URL:', mapsUrl);
     window.open(mapsUrl, '_blank');
   }
   
@@ -818,13 +817,14 @@ export default function StudentDashboard(){
     console.log('📋 [REGISTER] Fee is positive?', registrationFee > 0)
 
     if (participationType === 'TEAM') {
-      // Team registration - open TeamRegistrationModal
+      // Team registration - always open TeamRegistrationModal first
+      // PaymentModal will be opened INSIDE TeamRegistrationModal if fee > 0
       console.log('🎯 [REGISTER] Opening TEAM registration modal')
       setRegistrationModal({ open: true, hackathon })
     } else {
       // Solo registration
-      if (registrationFee > 0) {
-        // Show payment modal if there's a fee
+      if (registrationFee && registrationFee > 0) {
+        // Show payment modal only if there's a fee
         console.log('💳 [REGISTER] Opening payment modal for solo registration with fee ₹' + registrationFee)
         setPaymentModal({
           open: true,
@@ -832,7 +832,6 @@ export default function StudentDashboard(){
           registrationFee,
           registrationType: 'SOLO'
         })
-        alert(`💳 Payment Modal Opening: Hackathon "${hackathon.title}" has a registration fee of ₹${registrationFee}. Please complete payment.`)
       } else {
         // Direct registration if no fee
         console.log('✅ [REGISTER] No fee, registering directly')
@@ -1101,7 +1100,17 @@ export default function StudentDashboard(){
 
                 <div className="p-4">
                   <h3 className="text-sm font-semibold text-gray-900">{h.title}</h3>
-                  <p className="text-xs text-gray-500 mt-1">{h.college} • {new Date(h.date).toLocaleDateString()}</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {h.mode === 'Offline' && h.location?.venueName ? (
+                      <>
+                        <span className="font-semibold text-orange-600">📍 {h.location.venueName}</span>
+                        <span className="text-orange-500">*</span>
+                      </>
+                    ) : (
+                      h.college
+                    )}
+                    {' '} • {new Date(h.date).toLocaleDateString()}
+                  </p>
                   <div className="mt-3 flex items-center gap-2">
                     <span className={`text-xs font-semibold px-2 py-1 rounded-full ${h.mode==='Online' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>{h.mode}</span>
                     <span className={`text-xs font-semibold px-2 py-1 rounded-full ${h.status==='Active' ? 'bg-green-100 text-green-700' : h.status==='Completed' ? 'bg-gray-100 text-gray-700' : 'bg-yellow-100 text-yellow-800'}`}>{h.status}</span>
@@ -1473,16 +1482,16 @@ export default function StudentDashboard(){
       )}
 
       {/* Payment Modal - For hackathon registration with fees */}
-      {paymentModal.open && paymentModal.hackathon && (
+      {paymentModal.open && (
         <PaymentModal
           open={paymentModal.open}
           hackathon={paymentModal.hackathon}
           registrationType={paymentModal.registrationType}
           registrationFee={paymentModal.registrationFee}
+          teamData={paymentModal.teamData}
           onClose={() => setPaymentModal({ open: false, hackathon: null, registrationFee: 0, registrationType: null })}
           onPaymentSuccess={handleRegistrationSuccess}
           onPaymentFailed={(error) => {
-            alert(`Payment failed: ${error}`)
             setPaymentModal({ open: false, hackathon: null, registrationFee: 0, registrationType: null })
           }}
         />

@@ -131,7 +131,7 @@ exports.verifyPayment = async (req, res) => {
     // Check if user is already registered
     const existingRegistration = await Registration.findOne({
       hackathonId,
-      'participantInfo.studentId': userId
+      userId
     });
 
     if (existingRegistration) {
@@ -141,44 +141,106 @@ exports.verifyPayment = async (req, res) => {
       });
     }
 
-    // Create registration
-    let registrationData = {
-      hackathonId,
-      paymentStatus: 'completed',
-      paymentId,
-      orderId,
-      amount: hackathon.registrationFee,
-      participantInfo: {
-        studentId: userId
-      }
-    };
-
-    if (registrationType === 'TEAM' && teamData) {
-      registrationData.teamData = {
-        teamName: teamData.teamName,
-        leaderRollNumber: teamData.leaderRollNumber,
-        members: teamData.members || []
-      };
+    // Get student profile for registration details
+    const studentProfile = await Student.findById(userId);
+    if (!studentProfile) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student profile not found'
+      });
     }
 
-    const registration = await Registration.create(registrationData);
+    // Prepare registration data with payment info
+    const studentName = `${studentProfile.firstName || ''} ${studentProfile.lastName || ''}`.trim();
+    const { v4: uuidv4 } = require('uuid');
+    const qrToken = hackathon.mode === 'offline' ? uuidv4() : undefined;
+
+    let registrationData = {
+      hackathonId,
+      organizerId: hackathon.organizerId || hackathon.organizer,
+      userId,
+      studentName,
+      rollNumber: studentProfile.regNumber || '',
+      selfieUrl: studentProfile.liveSelfie || '',
+      participationType: registrationType,
+      status: 'registered',
+      paymentStatus: 'completed',
+      paymentId,
+      amountPaid: hackathon.registrationFee,
+      emailVerified: studentProfile.emailVerified || studentProfile.isEmailVerified,
+      qrToken,
+      qrIssuedAt: qrToken ? new Date() : undefined
+    };
+
+    // Add team data if TEAM registration
+    if (registrationType === 'TEAM' && teamData) {
+      registrationData.team = {
+        teamName: teamData.teamName,
+        leader: {
+          studentId: userId,
+          email: studentProfile.email,
+          rollNumber: studentProfile.regNumber || teamData.leaderRollNumber || ''
+        },
+        members: teamData.members.map(member => ({
+          email: member.email,
+          rollNumber: member.rollNumber,
+          status: 'CONFIRMED'
+        }))
+      };
+      registrationData.isTeamLead = true;
+    }
+
+    const registration = new Registration(registrationData);
+    await registration.save();
 
     console.log('✅ [REGISTRATION] Registration created after payment:', registration._id);
 
-    // Update student's registration list
-    await Student.findByIdAndUpdate(
-      userId,
-      { $push: { registrations: registration._id } },
-      { new: true }
-    );
+    // Generate QR code for offline hackathons
+    if (hackathon.mode === 'offline' && registration.qrToken) {
+      try {
+        const QRCode = require('qrcode');
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        const registrationPageUrl = `${frontendUrl}/registration/verify/${registration._id}`;
+        
+        const qrCodeImage = await QRCode.toDataURL(registrationPageUrl, {
+          errorCorrectionLevel: 'H',
+          type: 'image/png',
+          width: 300,
+          margin: 1,
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF'
+          }
+        });
+
+        registration.qrCode = qrCodeImage;
+        await registration.save();
+        console.log('✅ [QR CODE] QR code generated and saved');
+      } catch (qrErr) {
+        console.warn('⚠️ [QR CODE] Failed to generate QR code:', qrErr.message);
+      }
+    }
+
+    // Update hackathon registered count
+    hackathon.registeredCount += 1;
+    await hackathon.save();
+
+    // Update user's participation count
+    const User = require('../models/User');
+    const user = await User.findById(userId);
+    if (user) {
+      user.totalHackathonsParticipated = (user.totalHackathonsParticipated || 0) + 1;
+      await user.save();
+    }
 
     res.status(200).json({
       success: true,
       registration: {
         _id: registration._id,
         hackathonId: registration.hackathonId,
+        status: registration.status,
         paymentStatus: registration.paymentStatus,
-        teamData: registration.teamData
+        teamName: registration.team?.teamName || null
       },
       message: 'Payment verified and registration completed'
     });

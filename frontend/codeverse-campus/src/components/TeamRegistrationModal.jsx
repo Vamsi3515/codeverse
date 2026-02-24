@@ -31,6 +31,8 @@ export default function TeamRegistrationModal({ hackathon, onClose, onSuccess })
     // DEBUG: Verify email is being fetched correctly
     console.log('✅ [TEAM REG] Retrieved userEmail from localStorage:', email)
     console.log('✅ [TEAM REG] Retrieved userRegNumber from localStorage:', regNumber)
+    console.log('✅ [TEAM REG] Hackathon object received:', hackathon)
+    console.log('✅ [TEAM REG] Hackathon registrationFee:', hackathon?.registrationFee)
     
     setLeaderEmail(email)
     setLeaderRollNumber(regNumber)
@@ -126,21 +128,21 @@ export default function TeamRegistrationModal({ hackathon, onClose, onSuccess })
     
     console.log('💳 [REGISTRATION] Form submitted');
     console.log('💳 [REGISTRATION] Hackathon:', hackathon);
-    console.log('💳 [REGISTRATION] Registration Fee:', registrationFee);
+    console.log('💳 [REGISTRATION] Hackathon.registrationFee:', hackathon?.registrationFee);
+    console.log('💳 [REGISTRATION] Registration Fee (calculated):', registrationFee);
+    console.log('💳 [REGISTRATION] Is fee > 0?:', registrationFee > 0);
     
-    if (registrationFee > 0) {
-      // Show payment modal if there's a fee
-      console.log('🔗 [REGISTRATION] Opening payment modal for team registration');
-      console.log('🔗 [REGISTRATION] Payment modal state before update:', paymentModal);
+    if (registrationFee && registrationFee > 0) {
+      // Show payment modal only if there's a fee
+      console.log('🔗 [REGISTRATION] Opening payment modal for team registration with fee ₹' + registrationFee);
       setPaymentModal({
         open: true,
         registrationFee,
         registrationType: 'TEAM'
       });
-      console.log('🔗 [REGISTRATION] Payment modal opened!');
     } else {
-      // Direct registration if no fee
-      console.log('✅ [REGISTRATION] No fee, registering directly')
+      // Direct registration if no fee (fee is 0 or undefined)
+      console.log('✅ [REGISTRATION] No fee or fee is 0, registering directly without payment')
       await registerDirectly()
     }
   }
@@ -198,6 +200,11 @@ export default function TeamRegistrationModal({ hackathon, onClose, onSuccess })
 
   const handlePaymentSuccess = (registration) => {
     console.log('🎉 [PAYMENT SUCCESS] Registration complete:', registration)
+    console.log('🎉 [PAYMENT SUCCESS] Saving team data to the registration')
+    
+    // The registration was created by PaymentModal calling the backend
+    // The backend already saved the team data during payment verification
+    // So just close the modal and trigger success
     onSuccess(registration)
     onClose()
   }
@@ -358,7 +365,7 @@ export default function TeamRegistrationModal({ hackathon, onClose, onSuccess })
                 <div className="flex justify-between items-center">
                   <div>
                     <h3 className="text-sm font-semibold text-yellow-900">Registration Fee Required</h3>
-                    <p className="text-xs text-yellow-800 mt-1">This hackathon has a registration fee. You will be prompted to pay during checkout.</p>
+                    <p className="text-xs text-yellow-800 mt-1">After entering team details, you'll be taken to payment.</p>
                   </div>
                   <div className="text-right">
                     <p className="text-2xl font-bold text-yellow-600">₹{registrationFee}</p>
@@ -391,9 +398,9 @@ export default function TeamRegistrationModal({ hackathon, onClose, onSuccess })
                     Processing...
                   </>
                 ) : registrationFee > 0 ? (
-                  <>💳 Pay & Register </>
+                  <>💳 Register & Pay</>
                 ) : (
-                  <>✓ Register </>
+                  <>✓ Register</>
                 )}
               </button>
             </div>
@@ -401,24 +408,26 @@ export default function TeamRegistrationModal({ hackathon, onClose, onSuccess })
         </div>
       </div>
 
-      {/* Payment Modal */}
-      <PaymentModal
-        open={paymentModal.open}
-        hackathon={hackathon}
-        registrationType={paymentModal.registrationType}
-        teamData={{
-          teamName,
-          leaderRollNumber,
-          members: members.map(m => ({
-            email: m.email.trim(),
-            rollNumber: m.rollNumber.trim()
-          }))
-        }}
-        registrationFee={paymentModal.registrationFee}
-        onClose={() => setPaymentModal({ open: false, registrationFee: 0, registrationType: null })}
-        onPaymentSuccess={handlePaymentSuccess}
-        onPaymentFailed={handlePaymentFailed}
-      />
+      {/* Payment Modal - Only render when open */}
+      {paymentModal.open && (
+        <PaymentModal
+          open={paymentModal.open}
+          hackathon={hackathon}
+          registrationType={paymentModal.registrationType}
+          teamData={{
+            teamName,
+            leaderRollNumber,
+            members: members.map(m => ({
+              email: m.email.trim(),
+              rollNumber: m.rollNumber.trim()
+            }))
+          }}
+          registrationFee={paymentModal.registrationFee}
+          onClose={() => setPaymentModal({ open: false, registrationFee: 0, registrationType: null })}
+          onPaymentSuccess={handlePaymentSuccess}
+          onPaymentFailed={handlePaymentFailed}
+        />
+      )}
     </div>
   )
 }

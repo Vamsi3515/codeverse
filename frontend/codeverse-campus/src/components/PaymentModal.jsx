@@ -17,6 +17,8 @@ export default function PaymentModal({
   onPaymentSuccess,
   onPaymentFailed
 }) {
+  console.log('🔧 [PAYMENT] PaymentModal component mounted/updated with props:', { open, hackathonId: hackathon?._id, hackathonTitle: hackathon?.title, registrationFee, registrationType });
+  
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [processingPayment, setProcessingPayment] = useState(false)
@@ -29,11 +31,6 @@ export default function PaymentModal({
     }
   }, [open, hackathon, registrationFee])
 
-  if (!open) {
-    console.log('❌ [PAYMENT] PaymentModal is not open, not rendering');
-    return null
-  }
-
   console.log('✅ [PAYMENT] PaymentModal rendered with:', {
     open,
     hackathonId: hackathon?._id,
@@ -42,7 +39,7 @@ export default function PaymentModal({
   });
 
   const handlePayment = async () => {
-    if (!hackathon || !registrationFee) {
+    if (!hackathon || registrationFee === null || registrationFee === undefined || registrationFee === 0) {
       setError('Missing hackathon or fee information')
       return
     }
@@ -189,6 +186,17 @@ export default function PaymentModal({
 
         {/* Content */}
         <div className="p-6 space-y-6">
+          {/* Hackathon Mode Badge */}
+          {hackathon?.mode === 'offline' && (
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 flex items-center gap-2">
+              <span className="text-lg">📍</span>
+              <div>
+                <h4 className="font-semibold text-purple-900 text-sm">Offline Hackathon</h4>
+                <p className="text-xs text-purple-700">This is an in-person hackathon event</p>
+              </div>
+            </div>
+          )}
+
           {/* Registration Details */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="space-y-2">

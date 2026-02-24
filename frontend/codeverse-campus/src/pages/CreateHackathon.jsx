@@ -145,7 +145,14 @@ export default function CreateHackathon(){
     setError('')
     setMessage('')
 
-    console.log('\n📋 Publishing Hackathon - Skipping all client validations')
+    // ✅ VALIDATION: Offline hackathons MUST have location
+    if ((mode === 'offline' || mode === 'hybrid') && !offlineLocation) {
+      setError('❌ Location is required for offline/hybrid hackathons. Please fill in and save the location details.')
+      setLoading(false)
+      return
+    }
+
+    console.log('\n📋 Publishing Hackathon - Location validation passed')
 
     try {
       const token = localStorage.getItem('token')
@@ -662,10 +669,32 @@ export default function CreateHackathon(){
               )}
 
               {(mode === 'offline' || mode === 'hybrid') && (
-                <OfflineLocationPicker
-                  onLocationSelect={setOfflineLocation}
-                  existingLocation={offlineLocation}
-                />
+                <div>
+                  {!offlineLocation && (
+                    <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <p className="text-sm text-red-700 font-medium">
+                        ⚠️ Location is required for {mode === 'hybrid' ? 'hybrid' : 'offline'} hackathons
+                      </p>
+                      <p className="text-xs text-red-600 mt-1">
+                        Please fill in venue details and click "✅ Save Location" before publishing
+                      </p>
+                    </div>
+                  )}
+                  <OfflineLocationPicker
+                    onLocationSelect={setOfflineLocation}
+                    existingLocation={offlineLocation}
+                  />
+                  {offlineLocation && (
+                    <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <p className="text-sm text-green-700 font-medium">
+                        ✅ Location saved: {offlineLocation.venueName}, {offlineLocation.city}
+                      </p>
+                      <p className="text-xs text-green-600 mt-1">
+                        ({offlineLocation.latitude.toFixed(4)}, {offlineLocation.longitude.toFixed(4)})
+                      </p>
+                    </div>
+                  )}
+                </div>
               )}
 
               {/* Coding Problem Statements Section - Only for ONLINE Mode */}
@@ -1289,7 +1318,7 @@ export default function CreateHackathon(){
           <div className="flex gap-4 pt-4">
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || ((mode === 'offline' || mode === 'hybrid') && !offlineLocation)}
               className="flex-1 bg-sky-600 hover:bg-sky-700 text-white font-medium py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Publishing...' : 'Publish Hackathon'}

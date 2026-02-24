@@ -71,6 +71,15 @@ export default function StudentLogin(){
         localStorage.setItem('userCollege', data.user.college || '')
         localStorage.setItem('userCollegeAddress', data.user.collegeAddress || data.user.college || '')
         
+        // Store college coordinates for location routing
+        if (data.user.collegeLat && data.user.collegeLng) {
+          localStorage.setItem('userLatitude', data.user.collegeLat)
+          localStorage.setItem('userLongitude', data.user.collegeLng)
+          console.log('✅ [STUDENT COORDS] Saved college coordinates:', data.user.collegeLat, data.user.collegeLng)
+        } else {
+          console.warn('⚠️ [STUDENT COORDS] College coordinates not available in login response')
+        }
+        
         fetchStudentProfile(data.token, data.user.id)
         navigate('/dashboard/student')
       } else {

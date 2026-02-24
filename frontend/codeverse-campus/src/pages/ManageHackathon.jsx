@@ -48,6 +48,7 @@ export default function ManageHackathon(){
       const token = localStorage.getItem('token')
       
       // Fetch leaderboard
+      console.log('📊 [LEADERBOARD] Fetching for hackathonId:', hackathonId)
       const leaderboardRes = await fetch(`${API_URL}/hackathons/${hackathonId}/leaderboard`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -56,7 +57,10 @@ export default function ManageHackathon(){
       })
       const leaderboardData = await leaderboardRes.json()
       
+      console.log('📡 [LEADERBOARD] Response:', leaderboardData)
+      
       if (leaderboardData.success && leaderboardData.leaderboard) {
+        console.log('✅ [LEADERBOARD] Setting:', leaderboardData.leaderboard)
         setLeaderboard(leaderboardData.leaderboard)
       }
 
@@ -69,32 +73,49 @@ export default function ManageHackathon(){
       })
       const submissionsData = await submissionsRes.json()
       
+      console.log('📡 [SUBMISSIONS] Response:', submissionsData)
+      
       if (submissionsData.success) {
         setSubmissionCount(submissionsData.count || submissionsData.submissions?.length || 0)
       }
     } catch (err) {
-      console.error('Error fetching leaderboard/submissions:', err)
+      console.error('❌ [LEADERBOARD/SUBMISSIONS] Error fetching:', err)
     }
   }
 
   const fetchStudentDetails = async (userId) => {
     try {
+      console.log('🔍 [STUDENT DETAILS] Fetching for userId:', userId)
       const token = localStorage.getItem('token')
+      
+      if (!userId) {
+        console.error('❌ [STUDENT DETAILS] No userId provided')
+        alert('Error: No user ID available')
+        return
+      }
+
       const response = await fetch(`${API_URL}/students/${userId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       })
+      
+      console.log('📡 [STUDENT DETAILS] Response status:', response.status)
       const data = await response.json()
+      console.log('📡 [STUDENT DETAILS] Response data:', data)
       
       if (data.success) {
+        console.log('✅ [STUDENT DETAILS] Success, setting details:', data.user || data.student)
         setStudentDetails(data.user || data.student)
         setShowModal(true)
+      } else {
+        console.error('❌ [STUDENT DETAILS] API returned false success:', data)
+        alert(`Failed to fetch details: ${data.message || 'Unknown error'}`)
       }
     } catch (err) {
-      console.error('Error fetching student details:', err)
-      alert('Failed to fetch student details')
+      console.error('❌ [STUDENT DETAILS] Error fetching:', err)
+      alert(`Failed to fetch student details: ${err.message}`)
     }
   }
 
@@ -375,6 +396,8 @@ export default function ManageHackathon(){
                       <td className="px-4 py-3 text-center">
                         <button
                           onClick={() => {
+                            console.log('🔘 [VIEW DETAILS CLICK] Entry data:', entry)
+                            console.log('📍 [VIEW DETAILS CLICK] userId:', entry.userId)
                             setSelectedStudent(entry)
                             fetchStudentDetails(entry.userId)
                           }}
