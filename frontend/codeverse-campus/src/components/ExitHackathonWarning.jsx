@@ -34,7 +34,7 @@ export default function ExitHackathonWarning({
 
       if (response.data.success) {
         console.log('✅ Hackathon auto-submitted on exit')
-        // Call parent callback to handle navigation
+       
         if (onSubmitAndExit) {
           onSubmitAndExit(response.data)
         }

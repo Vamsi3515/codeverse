@@ -1,16 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 
-/**
- * FaceVerificationModal - Modal for face verification before joining online hackathons
- * 
- * Flow:
- * 1. Opens webcam and shows live feed
- * 2. User clicks "Capture" to take their photo
- * 3. Captured image + stored profile image sent to face comparison API
- * 4. API returns true/false for face match
- * 5. On success: Show instructions and allow entry
- * 6. On failure: Show error message
- */
+
 export default function FaceVerificationModal({ 
   open, 
   hackathon, 
@@ -18,7 +8,7 @@ export default function FaceVerificationModal({
   onClose, 
   onSuccess 
 }) {
-  const [step, setStep] = useState('camera') // camera, captured, verifying, success, failed
+  const [step, setStep] = useState('camera') 
   const [error, setError] = useState('')
   const [capturedImage, setCapturedImage] = useState(null)
   const [verificationResult, setVerificationResult] = useState(null)
@@ -27,8 +17,7 @@ export default function FaceVerificationModal({
   const canvasRef = useRef(null)
   const streamRef = useRef(null)
 
-  // API URL - FastAPI endpoint for face verification
-  // Uses environment variable VITE_FACE_VERIFY_API_URL, defaults to localhost
+ 
   const FACE_COMPARISON_API_URL = import.meta.env.VITE_FACE_VERIFY_API_URL || 'http://127.0.0.1:8000/verify'
 
   useEffect(() => {
@@ -82,17 +71,17 @@ export default function FaceVerificationModal({
     const canvas = canvasRef.current
     const context = canvas.getContext('2d')
 
-    // Set canvas dimensions to match video
+    
     canvas.width = video.videoWidth
     canvas.height = video.videoHeight
 
-    // Draw video frame to canvas
+   
     context.drawImage(video, 0, 0, canvas.width, canvas.height)
 
-    // Stop camera immediately after capturing the frame
+  
     stopCamera()
 
-    // Convert canvas to blob
+   
     canvas.toBlob((blob) => {
       setCapturedImage(blob)
       setStep('captured')
@@ -160,13 +149,11 @@ export default function FaceVerificationModal({
       console.log('✔️ [RESPONSE DEBUG] data.success:', data.success, 'Type:', typeof data.success)
       console.log('✔️ [RESPONSE DEBUG] data.match:', data.match, 'Type:', typeof data.match)
 
-      // Support both response formats:
-      // 1. User's FastAPI: { verified: boolean, distance: number, ... }
-      // 2. Generic: { success: boolean, match: boolean, ... }
+     
       const isVerified = data.verified === true || (data.success && data.match === true)
       console.log('🎯 [VERIFICATION RESULT] isVerified:', isVerified)
       
-      // Calculate confidence (normalize to 0-1 range)
+     
       let confidence = 0
       if (data.confidence !== undefined) {
         // If confidence is > 1 (e.g. 9.55), assume it's 0-100 scale and normalize

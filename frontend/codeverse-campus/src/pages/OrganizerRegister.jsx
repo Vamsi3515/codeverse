@@ -432,7 +432,7 @@ export default function OrganizerRegister() {
               </label>
 
               <label style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
-                <span style={{ fontSize: 13, fontWeight: 600, textAlign: 'left' }}>College Email</span>
+                <span style={{ fontSize: 13, fontWeight: 600, textAlign: 'left' }}>College Email <span style={{ color: '#dc2626' }}>*</span></span>
                 <div style={{ display: 'flex', gap: 8, width: '100%', flexWrap: 'wrap' }}>
                   <input placeholder="organizer@college.edu" value={registerFormData.collegeEmail} onChange={e => { setRegisterFormData(prev => ({ ...prev, collegeEmail: e.target.value })); setRegisterErrors(prev => ({ ...prev, collegeEmail: '' })); setOtpVerified(false); setOtpSent(false); setOtpMessage('') }} style={{ padding: 12, borderRadius: 8, border: '1px solid rgba(15,23,42,0.06)', width: '100%', minWidth: 220 }} required />
                   <button type="button" onClick={handleSendOtp} className="btn btn-secondary" style={{ padding: '10px 12px', borderRadius: 10 }} disabled={otpLoading}>
@@ -540,7 +540,7 @@ export default function OrganizerRegister() {
               </label>
 
               <div style={{ textAlign: 'center', marginTop: 6 }}>
-                <button type="submit" className="btn btn-primary" style={{ padding: '10px 16px', borderRadius: 10, display: 'inline-block' }} disabled={loading || !otpVerified || !proofUploadSuccess}>{loading ? 'Registering...' : 'Register'}</button>
+                <button type="submit" className="btn btn-primary" style={{ padding: '10px 16px', borderRadius: 10, display: 'inline-block' }} disabled={loading}>{loading ? 'Registering...' : 'Register'}</button>
               </div>
 
               <div style={{ fontSize: 13, color: 'var(--muted)', textAlign: 'center', marginTop: 8 }}>By registering, you agree to our Terms of Service.</div>

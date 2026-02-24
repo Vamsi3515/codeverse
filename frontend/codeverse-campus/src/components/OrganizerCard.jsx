@@ -1,10 +1,6 @@
 import React from 'react'
 
-// Reusable organizer-facing hackathon card
-// Props:
-// - item: hackathon data object
-// - variant: 'previous' | 'active' | 'scheduled'
-// - onPrimary: handler for primary action (Manage / View Details)
+
 export default function OrganizerCard({item, variant, onPrimary}){
   const {title, type, date, startDate, venue, participants} = item
 

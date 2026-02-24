@@ -1,12 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, AlertCircle } from 'lucide-react';
 
-/**
- * ProblemSubmissionConfirm.jsx
- * Shows confirmation that a problem was successfully submitted
- * Displays green checkmark and problem status
- * Professional, clean UI without excessive symbols
- */
+
 const ProblemSubmissionConfirm = ({ 
   isOpen, 
   onClose, 

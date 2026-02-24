@@ -25,6 +25,8 @@ import EditHackathon from './pages/EditHackathon'
 import StudentRegistrationQR from './pages/StudentRegistrationQR'
 import RegistrationVerification from './pages/RegistrationVerification'
 import Leaderboard from './pages/Leaderboard'
+import Certificate from './pages/Certificate'
+import CertificatePreview from './pages/CertificatePreview'
 // Lazy load OnlineEditor to prevent app crash if it fails
 const OnlineEditor = React.lazy(() => import('./pages/OnlineEditor'));
 import ErrorBoundary from './components/ErrorBoundary';
@@ -91,6 +93,21 @@ function App(){
           <Route path="/hackathons/:id/leaderboard" element={
             <StudentProtectedRoute>
               <Leaderboard />
+            </StudentProtectedRoute>
+          } />
+          <Route path="/certificate/:id" element={
+            <StudentProtectedRoute>
+              <Certificate />
+            </StudentProtectedRoute>
+          } />
+          <Route path="/certificate/:id/:userId" element={
+            <StudentProtectedRoute>
+              <Certificate />
+            </StudentProtectedRoute>
+          } />
+          <Route path="/certificate-preview" element={
+            <StudentProtectedRoute>
+              <CertificatePreview />
             </StudentProtectedRoute>
           } />
           

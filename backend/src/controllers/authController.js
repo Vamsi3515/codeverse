@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const fs = require('fs');
 const User = require('../models/User');
 const Student = require('../models/Student');
 const Organizer = require('../models/Organizer');

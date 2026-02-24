@@ -2,10 +2,7 @@ import React, {useState, useEffect} from 'react'
 import { useNavigate } from 'react-router-dom'
 import styles from './EventCard.module.css'
 
-// Reusable EventCard for landing page
-// Props:
-// - event: {id,title,organizer,techStack,date,type,location,imageUrl}
-// - onRegister(event)
+
 export default function EventCard({event, onRegister, primaryLabel}){
   const navigate = useNavigate()
   const {title, organizer, techStack, date, type, location, imageUrl} = event
@@ -13,7 +10,7 @@ export default function EventCard({event, onRegister, primaryLabel}){
   const t = String(type || '').toLowerCase()
   const badgeClass = t === 'online' ? styles.badgeOnline : styles.badgeOffline
 
-  // Image loading / fallback logic
+  
   const FALLBACK = 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1200&q=80'
   const [src, setSrc] = useState(imageUrl || FALLBACK)
   const [loaded, setLoaded] = useState(false)
