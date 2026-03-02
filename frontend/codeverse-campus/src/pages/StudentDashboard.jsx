@@ -267,6 +267,7 @@ export default function StudentDashboard(){
   const [faceVerificationModal, setFaceVerificationModal] = useState({ open: false, hackathon: null })
   const [userProfile, setUserProfile] = useState(null)
   const [registeredHackathons, setRegisteredHackathons] = useState([])
+  const [registrationsLoaded, setRegistrationsLoaded] = useState(false)
   const [registrationModal, setRegistrationModal] = useState({ open: false, hackathon: null })
   const [registrationSuccessModal, setRegistrationSuccessModal] = useState({ open: false, hackathon: null, registration: null })
   const [paymentModal, setPaymentModal] = useState({ open: false, hackathon: null, registrationFee: 0, registrationType: null })
@@ -304,15 +305,15 @@ export default function StudentDashboard(){
   }
 
   useEffect(() => {
-    console.log('🔍 [DASHBOARD INIT] ComponentDidMount - Fetching hackathons...');
-    // Fetch hackathons from API
-    fetchHackathons()
-    // Fetch user profile for face verification
-    fetchUserProfile()
-    // Fetch registered hackathons from backend
-    fetchMyRegistrations()
-    // Fetch attempted/submitted hackathons
-    fetchAttemptedHackathons()
+    console.log('🔍 [DASHBOARD INIT] ComponentDidMount - Fetching data...');
+    // Fetch registered hackathons FIRST
+    fetchMyRegistrations().then(() => {
+      console.log('✅ [DASHBOARD INIT] Registrations loaded, now fetching hackathons...');
+      // Then fetch other data
+      fetchHackathons()
+      fetchUserProfile()
+      fetchAttemptedHackathons()
+    })
   }, [])
 
   const fetchMyRegistrations = async () => {
@@ -320,6 +321,7 @@ export default function StudentDashboard(){
       const token = localStorage.getItem('token')
       if (!token) {
         console.log('⚠️ [MY REGISTRATIONS] No token found')
+        setRegistrationsLoaded(true)
         return
       }
 
@@ -331,30 +333,37 @@ export default function StudentDashboard(){
       })
 
       const data = await response.json()
+      console.log('📦 [MY REGISTRATIONS] API Response:', data)
+      
       if (data.success && Array.isArray(data.registrations)) {
-        console.log('✅ [MY REGISTRATIONS] Fetched successfully:', data.registrations)
+        console.log('✅ [MY REGISTRATIONS] Fetched successfully:', data.registrations.length, 'registrations')
         console.log('✅ [MY REGISTRATIONS] Full data structure:', JSON.stringify(data.registrations, null, 2))
         
         // Extract hackathon IDs - hackathonId is an object, so we need hackathonId._id
         const registeredIds = data.registrations.map(reg => {
-          console.log('🔍 [MY REGISTRATIONS] Processing registration:', reg)
+          console.log('🔍 [MY REGISTRATIONS] Processing registration:', JSON.stringify(reg))
           // hackathonId can be an object with _id or a string ID
-          const id = typeof reg.hackathonId === 'object' 
+          const hackId = typeof reg.hackathonId === 'object' 
             ? reg.hackathonId?._id 
             : reg.hackathonId
-          console.log('🔍 [MY REGISTRATIONS] Extracted ID:', id)
-          return id
-        }).filter(Boolean)
+          console.log('🔍 [MY REGISTRATIONS] Extracted hackathonId:', hackId, 'Type:', typeof hackId)
+          return hackId
+        }).filter(id => {
+          console.log('🔍 [MY REGISTRATIONS] Filtering ID:', id, 'Valid?', Boolean(id))
+          return Boolean(id)
+        })
         
         console.log('📋 [MY REGISTRATIONS] Final registered IDs:', registeredIds)
         setRegisteredHackathons(registeredIds)
         try{ localStorage.setItem('registeredHackathons', JSON.stringify(registeredIds)) }catch(e){}
       } else {
-        console.log('⚠️ [MY REGISTRATIONS] No registrations found or error:', data)
+        console.log('⚠️ [MY REGISTRATIONS] No registrations found, error/data:', data)
         setRegisteredHackathons([])
       }
+      setRegistrationsLoaded(true)
     } catch (error) {
       console.error('❌ [MY REGISTRATIONS] Failed to fetch:', error)
+      setRegistrationsLoaded(true)
       // Fallback to localStorage
       try{
         const raw = localStorage.getItem('registeredHackathons')
@@ -443,7 +452,8 @@ export default function StudentDashboard(){
         // Transform API hackathons to match the expected format
         const transformedHackathons = data.hackathons.map((h, idx) => {
           console.log(`\n🔄 [TRANSFORM ${idx + 1}] Processing: "${h.title}" | Mode: ${h.mode}`);
-          console.log(`   Raw location from API:`, h.location);
+          console.log(`   Raw API - registrationFee: ${h.registrationFee} (type: ${typeof h.registrationFee})`);
+          console.log(`   Raw API - location:`, h.location);
           
           // Check location data
           if ((h.mode === 'offline' || h.mode === 'hybrid') && h.location) {
@@ -477,7 +487,9 @@ export default function StudentDashboard(){
           };
           
           console.log(`   After transform - location:`, transformed.location);
-          console.log(`   After transform - latitude: ${transformed.latitude}, longitude: ${transformed.longitude}\n`);
+          console.log(`   After transform - latitude: ${transformed.latitude}, longitude: ${transformed.longitude}`);
+          console.log(`   After transform - registrationFee: ₹${transformed.registrationFee} (type: ${typeof transformed.registrationFee})`);
+          console.log(`   After transform - participationType: ${transformed.participationType}\n`);
           return transformed;
         });
         
@@ -640,6 +652,16 @@ export default function StudentDashboard(){
     if(query && !searchText.includes(query.toLowerCase())) return false
     return true
   })
+
+  console.log('═══════════════════════════════════════════════════════════')
+  console.log('🎯 [FILTERED HACKATHONS] Total after filter:', filtered.length)
+  filtered.forEach((h, idx) => {
+    console.log(`   [${idx + 1}] ${h.title}`)
+    console.log(`       - Fee: ₹${h.registrationFee} (type: ${typeof h.registrationFee})`)
+    console.log(`       - Type: ${h.participationType}`)
+    console.log(`       - Full object keys:`, Object.keys(h))
+  })
+  console.log('═══════════════════════════════════════════════════════════')
 
   // My Hackathons: Only registered hackathons, organized by status
   const registeredHackathonsData = allHackathons.filter(h => {
@@ -812,9 +834,17 @@ export default function StudentDashboard(){
     const participationType = hackathon.participationType?.toUpperCase() || 'SOLO'
     const registrationFee = hackathon.registrationFee || 0
     
-    console.log('📋 [REGISTER] Full hackathon object:', hackathon)
-    console.log('📋 [REGISTER] Hackathon type:', participationType, 'Fee:', registrationFee)
-    console.log('📋 [REGISTER] Fee is positive?', registrationFee > 0)
+    console.log('═══════════════════════════════════════════════════════════')
+    console.log('📋 [REGISTER] FULL HACKATHON OBJECT:', hackathon)
+    console.log('═══════════════════════════════════════════════════════════')
+    console.log('📋 [REGISTER] Extracted Values:')
+    console.log('   - Title:', hackathon.title)
+    console.log('   - Participation Type:', participationType)
+    console.log('   - Registration Fee:', registrationFee)
+    console.log('   - Fee Type:', typeof registrationFee)
+    console.log('   - Fee > 0?:', registrationFee > 0)
+    console.log('   - Fee && Fee > 0?:', registrationFee && registrationFee > 0)
+    console.log('═══════════════════════════════════════════════════════════')
 
     if (participationType === 'TEAM') {
       // Team registration - always open TeamRegistrationModal first
@@ -825,7 +855,7 @@ export default function StudentDashboard(){
       // Solo registration
       if (registrationFee && registrationFee > 0) {
         // Show payment modal only if there's a fee
-        console.log('💳 [REGISTER] Opening payment modal for solo registration with fee ₹' + registrationFee)
+        console.log('💳 [REGISTER] TEAM=NO, FEE>0 → Opening payment modal for solo registration with fee ₹' + registrationFee)
         setPaymentModal({
           open: true,
           hackathon,
@@ -834,7 +864,7 @@ export default function StudentDashboard(){
         })
       } else {
         // Direct registration if no fee
-        console.log('✅ [REGISTER] No fee, registering directly')
+        console.log('✅ [REGISTER] TEAM=NO, FEE=0 → Registering directly without payment (fee=' + registrationFee + ')')
         registerSoloDirectly(hackathon)
       }
     }
@@ -860,9 +890,15 @@ export default function StudentDashboard(){
       })
 
       const data = await response.json()
+      console.log('📦 [REGISTER] Response status:', response.status, 'Data:', data)
 
       if (data.success) {
         handleRegistrationSuccess(data.registration)
+      } else if (response.status === 400 && data.message && data.message.toLowerCase().includes('already registered')) {
+        // User is already registered - refetch from backend to sync
+        console.log('⚠️ [REGISTER] Already registered, syncing with backend...')
+        await fetchMyRegistrations()
+        alert('You are already registered for ' + hackathon.title + '. Check "My Hackathons" tab.')
       } else {
         alert(data.message || 'Registration failed')
       }
@@ -874,16 +910,32 @@ export default function StudentDashboard(){
 
   function handleRegistrationSuccess(registration) {
     console.log('✅ [REGISTRATION SUCCESS] Registration data received:', registration);
+    console.log('🎫 [REGISTRATION SUCCESS] QR Code present?', !!registration?.qrCode);
+    if (registration?.qrCode) {
+      console.log('🎫 [REGISTRATION SUCCESS] QR Code length:', registration.qrCode.length, 'characters');
+    }
     
-    const hackathonId = registration.hackathonId
+    // Extract hackathonId properly (could be string or object)
+    const hackathonId = typeof registration.hackathonId === 'object' 
+      ? registration.hackathonId?._id 
+      : registration.hackathonId
+    
+    console.log('✅ [REGISTRATION SUCCESS] Extracted hackathonId:', hackathonId);
+    
+    // Update local state immediately for instant UI update
     setRegisteredHackathons(prev => {
       const next = [...prev, hackathonId]
       try{ localStorage.setItem('registeredHackathons', JSON.stringify(next)) }catch(e){}
       return next
     })
 
+    // Refetch registrations from backend to ensure data consistency
+    fetchMyRegistrations()
+
     // Find the hackathon from allHackathons
     const hackathon = allHackathons.find(h => h.id === hackathonId || h._id === hackathonId)
+    
+    console.log('📋 [REGISTRATION SUCCESS] Hackathon found:', hackathon?.title, 'Mode:', hackathon?.mode);
     
     // Show success modal with QR code (for offline) and calendar permission
     setRegistrationSuccessModal({
@@ -931,22 +983,34 @@ export default function StudentDashboard(){
         return false
       }
 
-      // Wait for OAuth completion
+      // Wait for OAuth completion using postMessage
       return new Promise((resolve) => {
-        const checkInterval = setInterval(async () => {
-          if (popup && popup.closed) {
-            clearInterval(checkInterval)
-            console.log('📅 [CALENDAR] OAuth popup closed, adding event to calendar...')
+        const messageHandler = async (event) => {
+          // Security: only accept messages from same origin
+          if (event.origin !== window.location.origin) return
+
+          const { type, accessToken, refreshToken, error } = event.data
+
+          if (type === 'CALENDAR_AUTH_SUCCESS') {
+            console.log('✅ [CALENDAR] OAuth success, received tokens')
+            window.removeEventListener('message', messageHandler)
             
-            // Add event to calendar after auth
+            // Add event to calendar
             const success = await addHackathonToCalendar(hackathon)
             resolve(success)
+          } else if (type === 'CALENDAR_AUTH_FAILED') {
+            console.error('❌ [CALENDAR] OAuth failed:', error)
+            window.removeEventListener('message', messageHandler)
+            alert(`Calendar connection failed: ${error}`)
+            resolve(false)
           }
-        }, 500) // Check every 500ms
+        }
+
+        window.addEventListener('message', messageHandler)
 
         // Timeout after 3 minutes
         setTimeout(() => {
-          clearInterval(checkInterval)
+          window.removeEventListener('message', messageHandler)
           if (popup && !popup.closed) {
             popup.close()
           }
@@ -1078,7 +1142,14 @@ export default function StudentDashboard(){
             </button>
           </div>
           
-          {loading ? (
+          {!registrationsLoaded ? (
+            <div className="flex items-center justify-center py-12">
+              <div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="text-gray-500 text-sm mt-2">Loading your registrations...</p>
+              </div>
+            </div>
+          ) : loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             </div>

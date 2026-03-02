@@ -150,6 +150,11 @@ export default function PaymentModal({
 
       const verifyData = await verifyResponse.json()
       console.log('✅ [PAYMENT] Verification response:', verifyData)
+      console.log('📦 [PAYMENT] Registration data received:', verifyData.registration)
+      console.log('🎫 [PAYMENT] QR Code present?', !!verifyData.registration?.qrCode)
+      if (verifyData.registration?.qrCode) {
+        console.log('🎫 [PAYMENT] QR Code length:', verifyData.registration.qrCode.length, 'characters');
+      }
 
       setProcessingPayment(false)
 
@@ -184,8 +189,10 @@ export default function PaymentModal({
         <div className="p-6 space-y-6">
           {/* Hackathon Mode Badge */}
           {hackathon?.mode === 'offline' && (
-            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 flex items-center gap-2">
-              <span className="text-lg">📍</span>
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 flex items-start gap-3">
+              <div className="pt-1">
+                <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center flex-shrink-0"></div>
+              </div>
               <div>
                 <h4 className="font-semibold text-purple-900 text-sm">Offline Hackathon</h4>
                 <p className="text-xs text-purple-700">This is an in-person hackathon event</p>
@@ -220,14 +227,14 @@ export default function PaymentModal({
             </div>
           )}
 
-          {/* Info Box */}
+          {/* Next Steps */}
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-900 mb-2">📋 Next Steps</h3>
+            <h3 className="font-semibold text-gray-900 mb-2">Payment Process</h3>
             <ul className="space-y-1 text-sm text-gray-700">
-              <li>• Click "Pay & Register" to proceed to payment</li>
-              <li>• You will be redirected to Razorpay</li>
-              <li>• Complete the payment securely</li>
-              <li>• Registration will be confirmed automatically</li>
+              <li>1. Click "Pay & Register" to proceed to payment</li>
+              <li>2. You will be redirected to Razorpay secure gateway</li>
+              <li>3. Complete the payment securely</li>
+              <li>4. Registration will be confirmed automatically</li>
             </ul>
           </div>
 
@@ -251,19 +258,17 @@ export default function PaymentModal({
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Processing...
+                  Processing Payment...
                 </>
               ) : (
-                <>
-                  💳 Pay & Register
-                </>
+                <>Pay & Register</>
               )}
             </button>
           </div>
 
           {/* Razorpay Info */}
           <div className="text-xs text-center text-gray-500">
-            💳 Secure payment powered by Razorpay
+            Secure payment powered by Razorpay
           </div>
         </div>
       </div>

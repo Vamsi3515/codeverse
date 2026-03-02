@@ -90,6 +90,17 @@ const organizerSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    // Google Calendar OAuth tokens
+    googleAccessToken: {
+      type: String,
+      default: null,
+      select: false,
+    },
+    googleRefreshToken: {
+      type: String,
+      default: null,
+      select: false,
+    },
   },
   { timestamps: true }
 );

@@ -31,9 +31,9 @@ const getFullImageUrl = (imagePath) => {
 
 const getStudentProfile = async (userId) => {
   // Try Student model first, then fallback to User
-  const student = await Student.findById(userId).select('firstName lastName email college regNumber emailVerified isEmailVerified collegeIdCard liveSelfie');
+  const student = await Student.findById(userId).select('firstName lastName email phone college branch regNumber emailVerified isEmailVerified collegeIdCard liveSelfie');
   if (student) return student;
-  const user = await User.findById(userId).select('firstName lastName email college regNumber emailVerified isEmailVerified collegeIdCard liveSelfie');
+  const user = await User.findById(userId).select('firstName lastName email phone college branch regNumber emailVerified isEmailVerified collegeIdCard liveSelfie');
   return user;
 };
 
@@ -87,7 +87,8 @@ exports.registerForHackathon = async (req, res) => {
       }
     }
 
-    if (hackathon.registeredCount >= hackathon.maxParticipants) {
+    // Check max participants only if limit is set (null/undefined = unlimited registrations)
+    if (hackathon.maxParticipants && hackathon.registeredCount >= hackathon.maxParticipants) {
       return res.status(400).json({ success: false, message: 'Hackathon is full' });
     }
 
@@ -732,15 +733,21 @@ exports.verifyRegistrationDetails = async (req, res) => {
       });
     }
 
+    console.log('📋 [VERIFICATION] Registration found. User ID:', registration.userId);
+    console.log('📋 [VERIFICATION] Hackathon:', registration.hackathonId?.title);
+
     // Get student profile details
     const studentProfile = await getStudentProfile(registration.userId);
     if (!studentProfile) {
       console.log('❌ [VERIFICATION] Student profile not found for user:', registration.userId);
+      console.log('⚠️ [VERIFICATION] This might mean the Student/User record was deleted after registration');
       return res.status(404).json({ 
         success: false, 
-        message: 'Student profile not found' 
+        message: 'Student profile not found. The student account may have been deleted.'
       });
     }
+
+    console.log('✅ [VERIFICATION] Student profile found:', studentProfile._id);
 
     // Get selfie URL (prefer liveSelfie, fallback to registration selfie)
     const selfieUrl = studentProfile.liveSelfie || registration.selfieUrl;
@@ -749,8 +756,8 @@ exports.verifyRegistrationDetails = async (req, res) => {
     const responseData = {
       _id: registration._id,
       status: registration.status,
-      registeredAt: registration.registeredAt,
-      registrationDate: registration.registrationDate,
+      registeredAt: registration.registeredAt || registration.createdAt,
+      registrationDate: registration.registrationDate || registration.createdAt,
       teamName: registration.teamName || null,
       participationType: registration.participationType,
       
@@ -758,7 +765,7 @@ exports.verifyRegistrationDetails = async (req, res) => {
       student: {
         fullName: `${studentProfile.firstName || ''} ${studentProfile.lastName || ''}`.trim(),
         rollNumber: studentProfile.regNumber || registration.rollNumber || 'N/A',
-        email: studentProfile.email,
+        email: studentProfile.email || 'N/A',
         phone: studentProfile.phone || 'N/A',
         college: studentProfile.college || 'N/A',
         branch: studentProfile.branch || 'N/A',
@@ -766,22 +773,22 @@ exports.verifyRegistrationDetails = async (req, res) => {
       },
       
       // Team details (if applicable)
-      team: registration.team ? {
-        teamName: registration.team.teamName,
+      team: registration.team && registration.team.leader ? {
+        teamName: registration.team.teamName || 'N/A',
         leader: {
-          email: registration.team.leader.email,
-          rollNumber: registration.team.leader.rollNumber
+          email: registration.team.leader.email || 'N/A',
+          rollNumber: registration.team.leader.rollNumber || 'N/A'
         },
         members: registration.team.members && registration.team.members.length > 0 ? registration.team.members.map(m => ({
-          email: m.email,
-          rollNumber: m.rollNumber,
-          status: m.status
+          email: m.email || 'N/A',
+          rollNumber: m.rollNumber || 'N/A',
+          status: m.status || 'UNKNOWN'
         })) : []
       } : null,
       
       // Hackathon details
       hackathon: {
-        title: registration.hackathonId.title,
+        title: registration.hackathonId.title || 'Unknown Hackathon',
         mode: registration.hackathonId.mode,
         startDate: registration.hackathonId.startDate || registration.hackathonId.date,
         endDate: registration.hackathonId.endDate,
@@ -800,6 +807,7 @@ exports.verifyRegistrationDetails = async (req, res) => {
 
   } catch (error) {
     console.error('❌ [VERIFICATION] Error fetching registration details:', error);
+    console.error('❌ [VERIFICATION] Error stack:', error.stack);
     res.status(500).json({ 
       success: false, 
       message: 'Failed to fetch registration details',

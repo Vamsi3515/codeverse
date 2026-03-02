@@ -183,10 +183,18 @@ export default function TeamRegistrationModal({ hackathon, onClose, onSuccess })
       })
 
       const data = await response.json()
+      console.log('📦 [TEAM REGISTER] Response status:', response.status, 'Data:', data)
 
       if (data.success) {
         onSuccess(data.registration)
         onClose()
+      } else if (response.status === 400 && data.message && data.message.toLowerCase().includes('already registered')) {
+        // User is already registered - add to list and show them their My Hackathons section
+        console.log('⚠️ [TEAM REGISTER] Already registered')
+        setError('You are already registered for ' + hackathon.title + '. Check "My Hackathons" tab.')
+        setTimeout(() => {
+          onClose()
+        }, 2000)
       } else {
         setError(data.message || 'Registration failed')
       }
@@ -398,9 +406,9 @@ export default function TeamRegistrationModal({ hackathon, onClose, onSuccess })
                     Processing...
                   </>
                 ) : registrationFee > 0 ? (
-                  <>💳 Register & Pay</>
+                  <>Register & Pay</>  
                 ) : (
-                  <>✓ Register</>
+                  <>Register</>
                 )}
               </button>
             </div>

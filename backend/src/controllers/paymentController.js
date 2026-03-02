@@ -44,10 +44,12 @@ exports.createOrder = async (req, res) => {
     }
 
     // Create Razorpay order
+    const timestamp = Date.now().toString().slice(-8);
+    const hackId = hackathonId.slice(-6);
     const options = {
       amount: Math.round(amount * 100), // Amount in paise
       currency: 'INR',
-      receipt: `receipt_${hackathonId}_${userId}_${Date.now()}`,
+      receipt: `pay_${hackId}_${timestamp}`, // Shortened to meet Razorpay 40-char limit
       notes: {
         hackathonId,
         userId,
@@ -194,6 +196,7 @@ exports.verifyPayment = async (req, res) => {
     await registration.save();
 
     console.log('✅ [REGISTRATION] Registration created after payment:', registration._id);
+    console.log('📋 [REGISTRATION] Hackathon mode:', hackathon.mode, 'QR Token:', registration.qrToken);
 
     // Generate QR code for offline hackathons
     if (hackathon.mode === 'offline' && registration.qrToken) {
@@ -201,6 +204,9 @@ exports.verifyPayment = async (req, res) => {
         const QRCode = require('qrcode');
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
         const registrationPageUrl = `${frontendUrl}/registration/verify/${registration._id}`;
+        
+        console.log('🎫 [QR CODE] Generating QR for offline hackathon:', hackathon.title);
+        console.log('🎫 [QR CODE] Registration ID:', registration._id);
         
         const qrCodeImage = await QRCode.toDataURL(registrationPageUrl, {
           errorCorrectionLevel: 'H',
@@ -216,9 +222,14 @@ exports.verifyPayment = async (req, res) => {
         registration.qrCode = qrCodeImage;
         await registration.save();
         console.log('✅ [QR CODE] QR code generated and saved');
+        console.log('✅ [QR CODE] QR code length:', qrCodeImage.length, 'bytes');
       } catch (qrErr) {
         console.warn('⚠️ [QR CODE] Failed to generate QR code:', qrErr.message);
       }
+    } else if (hackathon.mode !== 'offline') {
+      console.log('ℹ️ [QR CODE] Hackathon is ONLINE - no QR code needed');
+    } else {
+      console.log('⚠️ [QR CODE] No QR token for offline hackathon');
     }
 
     // Update hackathon registered count
@@ -233,15 +244,13 @@ exports.verifyPayment = async (req, res) => {
       await user.save();
     }
 
+    console.log('✅ [PAYMENT] Payment verification complete. Returning full registration with QR code');
+    console.log('📦 [PAYMENT] Registration object keys:', Object.keys(registration.toObject()).join(', '));
+    console.log('📦 [PAYMENT] QR Code present?', !!registration.qrCode);
+
     res.status(200).json({
       success: true,
-      registration: {
-        _id: registration._id,
-        hackathonId: registration.hackathonId,
-        status: registration.status,
-        paymentStatus: registration.paymentStatus,
-        teamName: registration.team?.teamName || null
-      },
+      registration: registration, // Return FULL registration object with QR code
       message: 'Payment verified and registration completed'
     });
   } catch (error) {

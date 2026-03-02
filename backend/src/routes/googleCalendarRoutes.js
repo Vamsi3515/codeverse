@@ -3,6 +3,8 @@ const router = express.Router();
 const { protect } = require('../middleware/auth');
 const calendarService = require('../services/calendarService');
 const User = require('../models/User');
+const Student = require('../models/Student');
+const Organizer = require('../models/Organizer');
 
 /**
  * @route   POST /api/google-calendar/auth
@@ -36,10 +38,27 @@ router.get('/callback', async (req, res) => {
       return res.status(400).send('Failed to exchange authorization code');
     }
 
-    await User.findByIdAndUpdate(state, {
+    // Try to find and update user in Student model first
+    let updated = await Student.findByIdAndUpdate(state, {
       googleAccessToken: result.tokens.access_token,
       googleRefreshToken: result.tokens.refresh_token
     });
+
+    // If not found, try Organizer model
+    if (!updated) {
+      updated = await Organizer.findByIdAndUpdate(state, {
+        googleAccessToken: result.tokens.access_token,
+        googleRefreshToken: result.tokens.refresh_token
+      });
+    }
+
+    // If not found in either, try User model (legacy)
+    if (!updated) {
+      updated = await User.findByIdAndUpdate(state, {
+        googleAccessToken: result.tokens.access_token,
+        googleRefreshToken: result.tokens.refresh_token
+      });
+    }
 
     // Return a small HTML to notify opener and close
     return res.send(`<!DOCTYPE html><html><body><script>

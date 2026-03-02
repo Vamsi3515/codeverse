@@ -1,11 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const codeController = require('../../controllers/compiler/codeController');
-<<<<<<< HEAD
 const { protect } = require('../../middleware/auth');
 const { testPistonConnectivity } = require('../../utils/pistonDiagnostics');
-=======
->>>>>>> 3c1227323a527365973dda54f376e9b6df8b2ffb
 
 // Run Code (Execute and return output)
 // No authentication required for code execution

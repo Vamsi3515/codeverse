@@ -27,6 +27,7 @@ import RegistrationVerification from './pages/RegistrationVerification'
 import Leaderboard from './pages/Leaderboard'
 import Certificate from './pages/Certificate'
 import CertificatePreview from './pages/CertificatePreview'
+import CalendarCallback from './pages/CalendarCallback'
 // Lazy load OnlineEditor to prevent app crash if it fails
 const OnlineEditor = React.lazy(() => import('./pages/OnlineEditor'));
 import ErrorBoundary from './components/ErrorBoundary';
@@ -64,6 +65,7 @@ function App(){
           <Route path="/login/student" element={<StudentLogin />} />
           <Route path="/login/organizer" element={<OrganizerLogin />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/auth/calendar-callback" element={<CalendarCallback />} />
           
           {/* Protected Student Routes */}
           <Route path="/dashboard/student" element={

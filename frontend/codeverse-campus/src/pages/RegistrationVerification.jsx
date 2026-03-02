@@ -25,19 +25,27 @@ export default function RegistrationVerification() {
       setError(null)
 
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'
+      console.log('🔍 [VERIFICATION] Fetching registration details for ID:', registrationId)
+      
       const response = await axios.get(
         `${backendUrl}/api/registrations/verify/${registrationId}`
       )
 
+      console.log('📦 [VERIFICATION] API Response:', response.data)
+      
       if (response.data.success) {
         setRegistration(response.data.data)
         console.log('✅ [VERIFICATION] Registration details loaded:', response.data.data)
       } else {
-        setError('Registration not found')
+        console.log('❌ [VERIFICATION] API returned success=false:', response.data)
+        setError(response.data.message || 'Registration not found')
       }
     } catch (err) {
       console.error('❌ [VERIFICATION] Failed to load registration:', err)
-      setError(err.response?.data?.message || 'Failed to verify registration')
+      console.error('❌ [VERIFICATION] Error response:', err.response?.data)
+      console.error('❌ [VERIFICATION] Error message:', err.message)
+      const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to verify registration'
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }

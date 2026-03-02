@@ -171,6 +171,8 @@ exports.createHackathon = async (req, res) => {
       publish,
     } = req.body;
 
+    console.log('💳 [CREATE] registrationFee from request:', registrationFee, 'Type:', typeof registrationFee);
+
     // Determine the initial status
     let hackathonStatus = status || 'draft';
     let isPublished = false;
@@ -233,6 +235,7 @@ exports.createHackathon = async (req, res) => {
     
     console.log('✅ Hackathon saved:', hackathon._id, 'Title:', hackathon.title, 'Status:', hackathonStatus);
     console.log('✅ Organizer ID in hackathon:', hackathon.organizer);
+    console.log('💳 [CREATE] registrationFee SAVED in DB:', hackathon.registrationFee, 'Type:', typeof hackathon.registrationFee);
 
     const message = hackathonStatus === 'scheduled' ? 'Hackathon published successfully' : 'Hackathon created successfully';
 
@@ -300,11 +303,14 @@ exports.publishHackathon = async (req, res) => {
     console.log('📝 Publishing hackathon:', id);
     console.log('  Hackathon organizer:', hackathon.organizer);
     console.log('  Request user ID:', req.user.id);
+    console.log('💳 [PUBLISH BEFORE] registrationFee:', hackathon.registrationFee, 'Type:', typeof hackathon.registrationFee);
 
     // Skip validation checks and force publish
     hackathon.status = 'published';
     hackathon.isPublished = true;
     await hackathon.save();
+
+    console.log('💳 [PUBLISH AFTER] registrationFee:', hackathon.registrationFee, 'Type:', typeof hackathon.registrationFee);
 
     res.status(200).json({
       success: true,
@@ -573,15 +579,15 @@ exports.getAvailableHackathons = async (req, res) => {
       status: { $nin: ['completed', 'draft'] }
     })
     .populate('organizer', 'firstName lastName college')
-    .sort({ startDate: 1 }) // Sort by start date ascending
+    .sort({ createdAt: -1 }) // Sort by creation date descending (newest first)
     // ✅ Include ALL necessary fields including location for offline hackathons
-    .select('title college description mode participationType startDate endDate status registeredCount maxParticipants minTeamSize maxTeamSize bannerImage location isPublished antiCheatRules problemStatements competitionDuration');
+    .select('title college description mode participationType startDate endDate status registeredCount maxParticipants minTeamSize maxTeamSize bannerImage location isPublished antiCheatRules problemStatements competitionDuration registrationFee createdAt');
     
     console.log('🔍 [BACKEND DEBUG] Found', hackathons.length, 'published hackathons');
     
     // Ensure location data is complete and log it
     hackathons.forEach((h, index) => {
-      console.log(`🏢 [HACKATHON ${index + 1}] Title: "${h.title}" | Mode: ${h.mode} | Status: ${h.status}`);
+      console.log(`🏢 [HACKATHON ${index + 1}] Title: "${h.title}" | Mode: ${h.mode} | Status: ${h.status} | Fee: ₹${h.registrationFee || 0}`);
       
       if (h.mode === 'offline' || h.mode === 'hybrid') {
         if (h.location) {

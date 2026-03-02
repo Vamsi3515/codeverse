@@ -419,7 +419,6 @@ exports.executeCode = async (req, res) => {
       }
     }
 
-<<<<<<< HEAD
     // 3. Glot.io (free fallback) - always try this
     if (!result) {
       try {
@@ -449,13 +448,11 @@ exports.executeCode = async (req, res) => {
     // No execution method worked
     console.error('❌ All execution methods failed');
     const errorMsg = executionError?.message || 'No code execution service available';
-=======
     // Call Piston API with timeout
     console.log(`🚀 Executing ${language} code via Piston...`);
     const response = await axios.post(`${PISTON_API_URL}/execute`, payload, {
       timeout: 15000
     });
->>>>>>> 3c1227323a527365973dda54f376e9b6df8b2ffb
     
     return res.status(200).json({
       success: true,
@@ -464,7 +461,6 @@ exports.executeCode = async (req, res) => {
     });
 
   } catch (error) {
-<<<<<<< HEAD
     console.error('❌ Execution Fatal Error:', {
       message: error.message,
       stack: error.stack?.split('\n')[0]
@@ -475,10 +471,8 @@ exports.executeCode = async (req, res) => {
       message: 'Code execution service error',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
-=======
     console.error('❌ Execution Error:', error.message);
     console.error('❌ Full error:', error);
     res.status(500).json({ success: false, message: 'Failed to execute code: ' + error.message });
->>>>>>> 3c1227323a527365973dda54f376e9b6df8b2ffb
   }
 };

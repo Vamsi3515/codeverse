@@ -41,6 +41,7 @@ export default function CreateHackathon(){
   const [minTeamSize, setMinTeamSize] = useState(2)
   const [maxTeamSize, setMaxTeamSize] = useState(4)
   const [registrationFee, setRegistrationFee] = useState('0')
+  const [maxParticipants, setMaxParticipants] = useState('')
   const [rules, setRules] = useState('')
 
   // Problem Statements (for ONLINE mode)
@@ -147,7 +148,7 @@ export default function CreateHackathon(){
 
     // ✅ VALIDATION: Offline hackathons MUST have location
     if ((mode === 'offline' || mode === 'hybrid') && !offlineLocation) {
-      setError('❌ Location is required for offline/hybrid hackathons. Please fill in and save the location details.')
+      setError('Location is required for offline/hybrid hackathons. Please select location on the map and save it.')
       setLoading(false)
       return
     }
@@ -184,7 +185,7 @@ export default function CreateHackathon(){
           duration: calculateDuration(startDateTime, endDateTime),
           ...(competitionMinutes > 0 ? { competitionDuration: competitionMinutes } : {}),
           location: mode === 'offline' ? offlineLocation : null,
-          ...(mode === 'offline' || mode === 'hybrid' ? { maxParticipants: 100 } : {}),
+          maxParticipants: maxParticipants.trim() ? parseInt(maxParticipants) : null,
           registrationFee: parseInt(registrationFee) || 0,
           participationType: participationType.toUpperCase(),
           minTeamSize: participationType === 'team' ? parseInt(minTeamSize) : 1,
@@ -265,9 +266,7 @@ export default function CreateHackathon(){
         duration: calculateDuration(startDateTime, endDateTime),
         ...(competitionMinutesNew > 0 ? { competitionDuration: competitionMinutesNew } : {}),
         location: mode === 'offline' ? offlineLocation : null,
-        // Only include maxParticipants for OFFLINE/HYBRID hackathons
-        // For ONLINE hackathons, maxParticipants is not needed
-        ...(mode === 'offline' || mode === 'hybrid' ? { maxParticipants: 100 } : {}),
+        maxParticipants: maxParticipants.trim() ? parseInt(maxParticipants) : null,
         registrationFee: parseInt(registrationFee) || 0,
         participationType: participationType.toUpperCase(),
         minTeamSize: participationType === 'team' ? parseInt(minTeamSize) : 1,
@@ -647,7 +646,8 @@ export default function CreateHackathon(){
                         type="number"
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-sky-500 focus:border-transparent"
                         value={minTeamSize}
-                        onChange={e=>setMinTeamSize(Math.max(1, parseInt(e.target.value) || 2))}
+                        onChange={e=>setMinTeamSize(Math.max(2, parseInt(e.target.value) || 2))}
+                        min={2}
                       />
                     </div>
                     <div>
@@ -659,6 +659,7 @@ export default function CreateHackathon(){
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-sky-500 focus:border-transparent"
                         value={maxTeamSize}
                         onChange={e=>setMaxTeamSize(Math.max(minTeamSize, parseInt(e.target.value) || 4))}
+                        min={minTeamSize}
                       />
                     </div>
                   </div>
@@ -671,12 +672,12 @@ export default function CreateHackathon(){
               {(mode === 'offline' || mode === 'hybrid') && (
                 <div>
                   {!offlineLocation && (
-                    <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                      <p className="text-sm text-red-700 font-medium">
-                        ⚠️ Location is required for {mode === 'hybrid' ? 'hybrid' : 'offline'} hackathons
+                    <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <p className="text-sm text-amber-800 font-medium">
+                        Location is required for {mode === 'hybrid' ? 'hybrid' : 'offline'} hackathons
                       </p>
-                      <p className="text-xs text-red-600 mt-1">
-                        Please fill in venue details and click "✅ Save Location" before publishing
+                      <p className="text-xs text-amber-700 mt-1">
+                        Please select location on map and save before publishing
                       </p>
                     </div>
                   )}
@@ -687,7 +688,7 @@ export default function CreateHackathon(){
                   {offlineLocation && (
                     <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
                       <p className="text-sm text-green-700 font-medium">
-                        ✅ Location saved: {offlineLocation.venueName}, {offlineLocation.city}
+                        Location saved: {offlineLocation.venueName}, {offlineLocation.city}
                       </p>
                       <p className="text-xs text-green-600 mt-1">
                         ({offlineLocation.latitude.toFixed(4)}, {offlineLocation.longitude.toFixed(4)})
@@ -1120,6 +1121,21 @@ export default function CreateHackathon(){
                   )}
                 </div>
               )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Max Participants (Optional - Leave empty for unlimited)
+                </label>
+                <input
+                  type="number"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                  value={maxParticipants}
+                  onChange={e=>setMaxParticipants(e.target.value)}
+                  placeholder="Leave empty for unlimited registrations"
+                  min="1"
+                />
+                <p className="text-xs text-gray-500 mt-1">If empty, unlimited participants can register</p>
+              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">

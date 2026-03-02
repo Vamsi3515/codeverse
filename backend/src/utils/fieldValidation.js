@@ -210,8 +210,11 @@ exports.validateHackathonCreation = (data) => {
     }
   }
 
-  if (!data.maxParticipants || !Number.isInteger(data.maxParticipants) || data.maxParticipants <= 0) {
-    errors.push('Max participants must be a positive integer.');
+  // Max participants is optional - if provided, must be valid positive integer
+  if (data.maxParticipants !== undefined && data.maxParticipants !== null) {
+    if (!Number.isInteger(data.maxParticipants) || data.maxParticipants <= 0) {
+      errors.push('Max participants must be a positive integer if provided.');
+    }
   }
 
   return {

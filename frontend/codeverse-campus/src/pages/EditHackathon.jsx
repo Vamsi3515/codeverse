@@ -20,7 +20,7 @@ export default function EditHackathon() {
   const [participationType, setParticipationType] = useState('team')
   const [minTeamSize, setMinTeamSize] = useState(2)
   const [maxTeamSize, setMaxTeamSize] = useState(4)
-  const [maxParticipants, setMaxParticipants] = useState(100)
+  const [maxParticipants, setMaxParticipants] = useState('')
   const [registrationFee, setRegistrationFee] = useState('0')
   const [rules, setRules] = useState('')
 
@@ -134,7 +134,7 @@ export default function EditHackathon() {
         setRegistrationFee((h.registrationFee ?? 0).toString())
         setMinTeamSize(h.minTeamSize || 2)
         setMaxTeamSize(h.maxTeamSize || 4)
-        setMaxParticipants(h.maxParticipants || 100)
+        setMaxParticipants(h.maxParticipants ? h.maxParticipants.toString() : '')
         setRules((h.rules || []).join('\n'))
         setOfflineLocation(h.location || null)
         // Convert relative paths to full URLs
@@ -237,7 +237,7 @@ export default function EditHackathon() {
         location: mode === 'offline' ? offlineLocation : null,
         bannerImage: hackathonImageUrl || '',
         registrationFee: parseInt(registrationFee) || 0,
-        maxParticipants: parseInt(maxParticipants) || 100,
+        maxParticipants: maxParticipants.toString().trim() ? parseInt(maxParticipants) : null,
         participationType: participationType.toUpperCase(),
         minTeamSize: participationType === 'team' ? parseInt(minTeamSize) : 1,
         maxTeamSize: participationType === 'team' ? parseInt(maxTeamSize) : 1,
@@ -394,20 +394,20 @@ export default function EditHackathon() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Min Team Size</label>
                 <input
                   type="number"
-                  min={1}
+                  min={2}
                   className="w-full border border-gray-300 rounded-lg px-4 py-2"
                   value={minTeamSize}
-                  onChange={(e) => setMinTeamSize(e.target.value)}
+                  onChange={(e) => setMinTeamSize(Math.max(2, parseInt(e.target.value) || 2))}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Max Team Size</label>
                 <input
                   type="number"
-                  min={1}
+                  min={2}
                   className="w-full border border-gray-300 rounded-lg px-4 py-2"
                   value={maxTeamSize}
-                  onChange={(e) => setMaxTeamSize(e.target.value)}
+                  onChange={(e) => setMaxTeamSize(Math.max(minTeamSize, parseInt(e.target.value) || 4))}
                 />
               </div>
             </div>
@@ -518,12 +518,12 @@ export default function EditHackathon() {
             <div>
               <h2 className="text-xl font-semibold text-gray-800 mb-3">Offline Location</h2>
               {!offlineLocation && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-sm text-red-700 font-medium">
-                    ⚠️ Location is required for {mode === 'hybrid' ? 'hybrid' : 'offline'} hackathons
+                <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-sm text-amber-800 font-medium">
+                    Location is required for {mode === 'hybrid' ? 'hybrid' : 'offline'} hackathons
                   </p>
-                  <p className="text-xs text-red-600 mt-1">
-                    Please fill in venue details and click "✅ Save Location" to update
+                  <p className="text-xs text-amber-700 mt-1">
+                    Please select location on map and save to update
                   </p>
                 </div>
               )}
@@ -534,7 +534,7 @@ export default function EditHackathon() {
               {offlineLocation && (
                 <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
                   <p className="text-sm text-green-700 font-medium">
-                    ✅ Location saved: {offlineLocation.venueName}, {offlineLocation.city}
+                    Location saved: {offlineLocation.venueName}, {offlineLocation.city}
                   </p>
                   <p className="text-xs text-green-600 mt-1">
                     ({offlineLocation.latitude.toFixed(4)}, {offlineLocation.longitude.toFixed(4)})
@@ -545,16 +545,18 @@ export default function EditHackathon() {
           )}
 
           {/* Registration & Rules */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Max Participants</label>
+          <div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Max Participants (Optional - Leave empty for unlimited)</label>
               <input
                 type="number"
                 min={1}
                 className="w-full border border-gray-300 rounded-lg px-4 py-2"
                 value={maxParticipants}
                 onChange={(e) => setMaxParticipants(e.target.value)}
+                placeholder="Leave empty for unlimited registrations"
               />
+              <p className="text-xs text-gray-500 mt-1">If empty, unlimited participants can register</p>
             </div>
 
             <div>
